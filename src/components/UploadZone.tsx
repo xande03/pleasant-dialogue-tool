@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Upload, Music, Loader2 } from "lucide-react";
 
 interface UploadZoneProps {
