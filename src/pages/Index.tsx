@@ -1,16 +1,33 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useCallback } from "react";
+import UploadZone from "@/components/UploadZone";
+import AudioPlayer from "@/components/AudioPlayer";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+const Index = () => {
+  const [file, setFile] = useState<File | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleFileSelect = useCallback((selected: File) => {
+    setIsProcessing(true);
+    // Simulate processing delay
+    setTimeout(() => {
+      setFile(selected);
+      setIsProcessing(false);
+    }, 1500);
+  }, []);
+
+  const handleReset = useCallback(() => {
+    setFile(null);
+  }, []);
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="min-h-screen bg-background">
+      {file ? (
+        <AudioPlayer file={file} onReset={handleReset} />
+      ) : (
+        <UploadZone onFileSelect={handleFileSelect} isProcessing={isProcessing} />
+      )}
     </div>
   );
 };
-
-const Index = PlaceholderIndex;
 
 export default Index;
