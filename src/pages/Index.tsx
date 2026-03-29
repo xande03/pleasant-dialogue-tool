@@ -1,30 +1,45 @@
 import { useState, useCallback } from "react";
 import UploadZone from "@/components/UploadZone";
 import AudioPlayer from "@/components/AudioPlayer";
+import ProcessingStatus from "@/components/ProcessingStatus";
+import { useAudioJob } from "@/hooks/useAudioJob";
 
 const Index = () => {
   const [file, setFile] = useState<File | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { job, uploading, error, startJob, reset } = useAudioJob();
 
-  const handleFileSelect = useCallback((selected: File) => {
-    setIsProcessing(true);
-    // Simulate processing delay
-    setTimeout(() => {
+  const handleFileSelect = useCallback(
+    (selected: File) => {
       setFile(selected);
-      setIsProcessing(false);
-    }, 1500);
-  }, []);
+      startJob(selected);
+    },
+    [startJob]
+  );
 
   const handleReset = useCallback(() => {
     setFile(null);
-  }, []);
+    reset();
+  }, [reset]);
+
+  const showUpload = !file && !uploading;
+  const showProcessing = file && job && job.status !== "completed";
+  const showPlayer = file && job?.status === "completed";
 
   return (
     <div className="min-h-screen bg-background">
-      {file ? (
-        <AudioPlayer file={file} onReset={handleReset} />
-      ) : (
-        <UploadZone onFileSelect={handleFileSelect} isProcessing={isProcessing} />
+      {showUpload && (
+        <UploadZone onFileSelect={handleFileSelect} isProcessing={uploading} />
+      )}
+      {showProcessing && (
+        <ProcessingStatus
+          status={job.status}
+          filename={file.name}
+          error={job.status === "failed" ? job.error_message : error}
+          onRetry={handleReset}
+        />
+      )}
+      {showPlayer && (
+        <AudioPlayer file={file} job={job} onReset={handleReset} />
       )}
     </div>
   );
