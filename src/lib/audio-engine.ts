@@ -221,6 +221,29 @@ export class AudioEngine {
     }
   }
 
+  applyMaster(settings: MasterSettings) {
+    const now = this.ctx.currentTime;
+    this.masterBus.gain.cancelScheduledValues(now);
+    this.masterBus.gain.setValueAtTime(Math.max(0, settings.gain / 100), now);
+    this.limiter.threshold.setValueAtTime(
+      Math.max(-24, Math.min(0, settings.limiterThreshold)),
+      now
+    );
+    if (settings.limiterEnabled !== this.limiterEnabled) {
+      try {
+        this.masterBus.disconnect();
+        this.limiter.disconnect();
+      } catch {}
+      if (settings.limiterEnabled) {
+        this.masterBus.connect(this.limiter);
+        this.limiter.connect(this.ctx.destination);
+      } else {
+        this.masterBus.connect(this.ctx.destination);
+      }
+      this.limiterEnabled = settings.limiterEnabled;
+    }
+  }
+
   async resume() {
     if (this.ctx.state === "suspended") await this.ctx.resume();
   }
