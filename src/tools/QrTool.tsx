@@ -102,10 +102,12 @@ export default function QrTool() {
     }
     setGenerating(true);
     try {
+      // Media (image/music/file) needs low EC to fit; text/url stays medium.
+      const isMedia = meta.kind === "image" || meta.kind === "music" || meta.kind === "file";
       const qrDataUrl = await QRCode.toDataURL(payload, {
-        errorCorrectionLevel: "M",
+        errorCorrectionLevel: isMedia ? "L" : "M",
         margin: 2,
-        width: 512,
+        width: 640,
         color: { dark: "#0e1024", light: "#ffffff" },
       });
       const item: QrItem = {
