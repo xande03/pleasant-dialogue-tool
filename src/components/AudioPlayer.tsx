@@ -6,11 +6,18 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import TrackControls, { type TrackMeta } from "./TrackControls";
 import Metronome from "./Metronome";
+import MasterControls from "./MasterControls";
 import { type AudioJob, getTrackUrl } from "@/lib/audio-service";
-import { AudioEngine, type TrackEffects, defaultEffects } from "@/lib/audio-engine";
+import {
+  AudioEngine,
+  type TrackEffects,
+  type MasterSettings,
+  defaultEffects,
+  defaultMaster,
+} from "@/lib/audio-engine";
 import { detectBPM } from "@/lib/bpm-detector";
 import { saveProject, type SavedProject } from "@/lib/projects-store";
-import { renderMix, audioBufferToWav, downloadBlob } from "@/lib/mix-exporter";
+import { renderMix, audioBufferToWav, downloadBlob, computeMixPeak } from "@/lib/mix-exporter";
 
 interface AudioPlayerProps {
   file: { name: string; size?: number };
@@ -67,6 +74,8 @@ const AudioPlayer = ({
           )
         : Object.fromEntries(TRACK_DEFS.map((t) => [t.id, defaultEffects()]))
   );
+  const [master, setMaster] = useState<MasterSettings>(defaultMaster);
+  const [normalizing, setNormalizing] = useState(false);
 
   const effectsRef = useRef(effects);
   effectsRef.current = effects;
@@ -145,6 +154,11 @@ const AudioPlayer = ({
       engine.applyVolumePan(def.id, effects[def.id], anySolo, t, isPlayingRef.current);
     });
   }, [effects, anySolo]);
+
+  // Apply master settings (gain / limiter) to the live engine
+  useEffect(() => {
+    engineRef.current?.applyMaster(master);
+  }, [master]);
 
   const rescheduleAutomation = useCallback(() => {
     const engine = engineRef.current;
@@ -248,7 +262,7 @@ const AudioPlayer = ({
     setIsExporting(true);
     const toastId = toast.loading("Renderizando mix...");
     try {
-      const buffer = await renderMix(exportTracks);
+      const buffer = await renderMix(exportTracks, undefined, { master });
       const wav = audioBufferToWav(buffer);
       const base = file.name.replace(/\.[^.]+$/, "");
       downloadBlob(wav, `${base}_mix.wav`);
@@ -259,7 +273,38 @@ const AudioPlayer = ({
     } finally {
       setIsExporting(false);
     }
-  }, [isExporting, job.tracks, effects, file.name]);
+  }, [isExporting, job.tracks, effects, file.name, master]);
+
+  const handleNormalize = useCallback(async () => {
+    if (normalizing) return;
+    const trackPaths = job.tracks || {};
+    const exportTracks = TRACK_DEFS
+      .filter((def) => trackPaths[def.id])
+      .map((def) => ({
+        id: def.id,
+        url: getTrackUrl(trackPaths[def.id]!),
+        fx: effects[def.id],
+      }));
+    if (exportTracks.length === 0) return;
+    setNormalizing(true);
+    const toastId = toast.loading("Analisando mix...");
+    try {
+      const peak = await computeMixPeak(exportTracks);
+      if (peak < 1e-6) {
+        toast.error("Mix silencioso", { id: toastId });
+        return;
+      }
+      const targetLin = Math.pow(10, -1 / 20); // -1 dBFS
+      const newGain = Math.round(Math.min(400, (targetLin / peak) * 100));
+      setMaster((m) => ({ ...m, gain: Math.min(200, newGain) }));
+      toast.success(`Master ajustado para ${Math.min(200, newGain)}%`, { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error("Falha ao normalizar", { id: toastId });
+    } finally {
+      setNormalizing(false);
+    }
+  }, [normalizing, job.tracks, effects]);
 
   // Waveform
   const waveformBars = 80;
@@ -343,6 +388,13 @@ const AudioPlayer = ({
           </Button>
         </div>
       </div>
+
+      <MasterControls
+        master={master}
+        onChange={(patch) => setMaster((m) => ({ ...m, ...patch }))}
+        onNormalize={handleNormalize}
+        normalizing={normalizing}
+      />
 
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">

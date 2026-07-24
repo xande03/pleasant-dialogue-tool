@@ -1,11 +1,19 @@
 // Offline render of the full mix (all tracks + effects + automation) into a single WAV file.
 
-import type { TrackEffects, AutomationLane } from "./audio-engine";
+import type { TrackEffects, AutomationLane, MasterSettings } from "./audio-engine";
+import { defaultMaster } from "./audio-engine";
 
 export interface ExportTrack {
   id: string;
   url: string;
   fx: TrackEffects;
+}
+
+export interface RenderOptions {
+  master?: MasterSettings;
+  // When true, master gain is ignored during render and computed to bring peak to `normalizeTargetDb`.
+  normalize?: boolean;
+  normalizeTargetDb?: number; // default -1 dBFS
 }
 
 function makeImpulseResponse(ctx: OfflineAudioContext, duration = 2.5, decay = 2.0): AudioBuffer {
@@ -49,91 +57,143 @@ async function fetchDecoded(ctx: BaseAudioContext, url: string): Promise<AudioBu
 
 export async function renderMix(
   tracks: ExportTrack[],
-  onProgress?: (pct: number) => void
+  onProgress?: (pct: number) => void,
+  options: RenderOptions = {}
 ): Promise<AudioBuffer> {
   if (tracks.length === 0) throw new Error("No tracks to export");
+  const master = options.master ?? defaultMaster();
 
-  // 1) Decode all tracks with a temporary context (any sample rate works)
   const tmp = new AudioContext();
   onProgress?.(5);
   const decoded = await Promise.all(
     tracks.map(async (t) => ({ ...t, buffer: await fetchDecoded(tmp, t.url) }))
   );
   await tmp.close();
-  onProgress?.(30);
+  onProgress?.(25);
 
   const sampleRate = decoded[0].buffer.sampleRate;
   const duration = decoded.reduce((m, d) => Math.max(m, d.buffer.duration), 0);
   const anySolo = tracks.some((t) => t.fx.solo);
 
-  const offline = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate);
-  const reverb = offline.createConvolver();
-  reverb.buffer = makeImpulseResponse(offline);
+  const build = (masterGainValue: number, applyLimiter: boolean) => {
+    const offline = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate);
+    const reverb = offline.createConvolver();
+    reverb.buffer = makeImpulseResponse(offline);
 
-  for (const t of decoded) {
-    const audible = anySolo ? t.fx.solo : !t.fx.muted;
-    if (!audible) continue;
+    const masterBus = offline.createGain();
+    masterBus.gain.value = Math.max(0, masterGainValue);
 
-    const src = offline.createBufferSource();
-    src.buffer = t.buffer;
+    let outNode: AudioNode = masterBus;
+    if (applyLimiter) {
+      const limiter = offline.createDynamicsCompressor();
+      limiter.threshold.value = Math.max(-24, Math.min(0, master.limiterThreshold));
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.25;
+      masterBus.connect(limiter);
+      outNode = limiter;
+    }
+    outNode.connect(offline.destination);
 
-    const low = offline.createBiquadFilter();
-    low.type = "lowshelf";
-    low.frequency.value = 200;
-    low.gain.value = t.fx.low;
+    for (const t of decoded) {
+      const audible = anySolo ? t.fx.solo : !t.fx.muted;
+      if (!audible) continue;
 
-    const mid = offline.createBiquadFilter();
-    mid.type = "peaking";
-    mid.frequency.value = 1000;
-    mid.Q.value = 0.8;
-    mid.gain.value = t.fx.mid;
+      const src = offline.createBufferSource();
+      src.buffer = t.buffer;
 
-    const high = offline.createBiquadFilter();
-    high.type = "highshelf";
-    high.frequency.value = 4000;
-    high.gain.value = t.fx.high;
+      const low = offline.createBiquadFilter();
+      low.type = "lowshelf";
+      low.frequency.value = 200;
+      low.gain.value = t.fx.low;
 
-    const panner = offline.createStereoPanner();
-    scheduleAutomation(
-      panner.pan,
-      t.fx.automation.pan,
-      t.fx.pan,
-      (v) => Math.max(-1, Math.min(1, v)),
-      duration
-    );
+      const mid = offline.createBiquadFilter();
+      mid.type = "peaking";
+      mid.frequency.value = 1000;
+      mid.Q.value = 0.8;
+      mid.gain.value = t.fx.mid;
 
-    const dry = offline.createGain();
-    dry.gain.value = 1 - t.fx.reverb / 100;
-    const wet = offline.createGain();
-    wet.gain.value = t.fx.reverb / 100;
+      const high = offline.createBiquadFilter();
+      high.type = "highshelf";
+      high.frequency.value = 4000;
+      high.gain.value = t.fx.high;
 
-    const master = offline.createGain();
-    scheduleAutomation(
-      master.gain,
-      t.fx.automation.volume,
-      t.fx.volume,
-      (v) => v / 100,
-      duration
-    );
+      const panner = offline.createStereoPanner();
+      scheduleAutomation(
+        panner.pan,
+        t.fx.automation.pan,
+        t.fx.pan,
+        (v) => Math.max(-1, Math.min(1, v)),
+        duration
+      );
 
-    src.connect(low);
-    low.connect(mid);
-    mid.connect(high);
-    high.connect(panner);
-    panner.connect(dry);
-    panner.connect(reverb);
-    dry.connect(master);
-    reverb.connect(wet);
-    wet.connect(master);
-    master.connect(offline.destination);
+      const dry = offline.createGain();
+      dry.gain.value = 1 - t.fx.reverb / 100;
+      const wet = offline.createGain();
+      wet.gain.value = t.fx.reverb / 100;
 
-    src.start(0);
+      const trackMaster = offline.createGain();
+      scheduleAutomation(
+        trackMaster.gain,
+        t.fx.automation.volume,
+        t.fx.volume,
+        (v) => v / 100,
+        duration
+      );
+
+      src.connect(low);
+      low.connect(mid);
+      mid.connect(high);
+      high.connect(panner);
+      panner.connect(dry);
+      panner.connect(reverb);
+      dry.connect(trackMaster);
+      reverb.connect(wet);
+      wet.connect(trackMaster);
+      trackMaster.connect(masterBus);
+
+      src.start(0);
+    }
+
+    return offline.startRendering();
+  };
+
+  let masterGainValue = master.gain / 100;
+  if (options.normalize) {
+    onProgress?.(35);
+    const probe = await build(1, false);
+    const peak = bufferPeak(probe);
+    const targetDb = options.normalizeTargetDb ?? -1;
+    const targetLin = Math.pow(10, targetDb / 20);
+    masterGainValue = peak > 1e-6 ? Math.min(4, targetLin / peak) : 1;
+    onProgress?.(65);
   }
 
-  onProgress?.(45);
-  const rendered = await offline.startRendering();
-  onProgress?.(90);
+  onProgress?.(75);
+  const rendered = await build(masterGainValue, master.limiterEnabled);
+  onProgress?.(95);
   return rendered;
+}
+
+export function bufferPeak(buffer: AudioBuffer): number {
+  let peak = 0;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) {
+      const a = Math.abs(data[i]);
+      if (a > peak) peak = a;
+    }
+  }
+  return peak;
+}
+
+// Compute peak (linear 0..1) of the mix with unity master and no limiter.
+export async function computeMixPeak(tracks: ExportTrack[]): Promise<number> {
+  const buf = await renderMix(tracks, undefined, {
+    master: { gain: 100, limiterEnabled: false, limiterThreshold: 0 },
+  });
+  return bufferPeak(buf);
 }
 
 // PCM 16-bit WAV encoder
