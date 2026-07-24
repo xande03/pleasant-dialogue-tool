@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Volume2, VolumeX, ChevronDown, Sliders } from "lucide-react";
+import { Volume2, VolumeX, Sliders } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
-import type { TrackEffects } from "@/lib/audio-engine";
+import type { TrackEffects, AutomationLane as Lane } from "@/lib/audio-engine";
+import AutomationLane from "./AutomationLane";
 
 export interface TrackMeta {
   id: string;
@@ -15,6 +16,8 @@ interface TrackControlsProps {
   fx: TrackEffects;
   onChange: (patch: Partial<TrackEffects>) => void;
   anySolo: boolean;
+  duration: number;
+  currentTime: number;
 }
 
 const TrackControls = ({ meta, fx, onChange, anySolo }: TrackControlsProps) => {
