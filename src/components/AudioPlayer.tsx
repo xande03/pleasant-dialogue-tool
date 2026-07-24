@@ -389,6 +389,13 @@ const AudioPlayer = ({
         </div>
       </div>
 
+      <MasterControls
+        master={master}
+        onChange={(patch) => setMaster((m) => ({ ...m, ...patch }))}
+        onNormalize={handleNormalize}
+        normalizing={normalizing}
+      />
+
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Faixas separadas
