@@ -186,6 +186,8 @@ type PanelProps = {
   setRatio: (r: (typeof RATIOS)[number]) => void;
   style: string;
   setStyle: (s: string) => void;
+  model: string;
+  setModel: (m: string) => void;
   showMainUpload: boolean;
   showTwoImages: boolean;
   previewMain: string | null;
