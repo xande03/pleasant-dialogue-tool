@@ -328,6 +328,36 @@ const Panel = (p: PanelProps) => {
         id="ratio"
         icon={RatioIcon}
         title="Proporção"
+      </Section>
+
+      <Section
+        id="model"
+        icon={Cpu}
+        title="Modelo"
+        subtitle={`Motor: ${MODELS.find((m) => m.v === p.model)?.l ?? p.model}`}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {MODELS.map((m) => (
+            <button
+              key={m.v}
+              onClick={() => p.setModel(m.v)}
+              className={`p-2.5 rounded-xl border text-left transition ${
+                p.model === m.v
+                  ? "bg-primary/15 border-primary/60 text-primary glow-primary"
+                  : "glass hover:border-primary/30"
+              }`}
+            >
+              <div className="text-xs font-semibold">{m.l}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">{m.desc}</div>
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section
+        id="ratio"
+        icon={RatioIcon}
+        title="Proporção"
         subtitle={`Atual: ${p.ratio.label} • ${p.ratio.w}×${p.ratio.h}`}
       >
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
