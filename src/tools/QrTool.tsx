@@ -352,7 +352,7 @@ export default function QrTool() {
               <img src={current.qrDataUrl} alt="QR" className="w-64 h-64 sm:w-80 sm:h-80" />
             </div>
             <div className="text-center">
-              <div className="font-display font-semibold truncate max-w-[300px]">{current.label}</div>
+              <div className="font-display font-semibold truncate w-full max-w-[300px] mx-auto">{current.label}</div>
               <div className="text-[11px] text-muted-foreground mt-1">
                 {current.kind.toUpperCase()} • {fmtBytes(current.size)}
                 {current.mime && ` • ${current.mime}`}
