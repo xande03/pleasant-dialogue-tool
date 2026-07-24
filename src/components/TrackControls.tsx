@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Volume2, VolumeX, ChevronDown, Sliders } from "lucide-react";
+import { Volume2, VolumeX, Sliders } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
-import type { TrackEffects } from "@/lib/audio-engine";
+import type { TrackEffects, AutomationLane as Lane } from "@/lib/audio-engine";
+import AutomationLane from "./AutomationLane";
 
 export interface TrackMeta {
   id: string;
@@ -15,9 +16,11 @@ interface TrackControlsProps {
   fx: TrackEffects;
   onChange: (patch: Partial<TrackEffects>) => void;
   anySolo: boolean;
+  duration: number;
+  currentTime: number;
 }
 
-const TrackControls = ({ meta, fx, onChange, anySolo }: TrackControlsProps) => {
+const TrackControls = ({ meta, fx, onChange, anySolo, duration, currentTime }: TrackControlsProps) => {
   const [expanded, setExpanded] = useState(false);
   const audible = fx.solo || (!anySolo && !fx.muted);
 
@@ -124,6 +127,35 @@ const TrackControls = ({ meta, fx, onChange, anySolo }: TrackControlsProps) => {
                   onValueChange={([v]) => onChange({ pan: v / 100 })}
                 />
               </div>
+
+              <AutomationLane
+                label="Volume"
+                lane={fx.automation.volume}
+                duration={duration}
+                currentTime={currentTime}
+                color={meta.color}
+                min={0}
+                max={100}
+                format={(v) => `${Math.round(v)}%`}
+                onChange={(lane: Lane) =>
+                  onChange({ automation: { ...fx.automation, volume: lane } })
+                }
+              />
+              <AutomationLane
+                label="Pan"
+                lane={fx.automation.pan}
+                duration={duration}
+                currentTime={currentTime}
+                color={meta.color}
+                min={-1}
+                max={1}
+                format={(v) =>
+                  v === 0 ? "C" : v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`
+                }
+                onChange={(lane: Lane) =>
+                  onChange({ automation: { ...fx.automation, pan: lane } })
+                }
+              />
             </div>
           </motion.div>
         )}

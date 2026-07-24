@@ -33,6 +33,16 @@ const formatTime = (s: number) => {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 };
 
+const normalizeEffects = (fx: TrackEffects): TrackEffects => ({
+  ...defaultEffects(),
+  ...fx,
+  automation: {
+    volume:
+      fx.automation?.volume ?? { enabled: false, points: [] },
+    pan: fx.automation?.pan ?? { enabled: false, points: [] },
+  },
+});
+
 const AudioPlayer = ({
   file,
   job,
@@ -42,17 +52,26 @@ const AudioPlayer = ({
   onSaved,
 }: AudioPlayerProps) => {
   const engineRef = useRef<AudioEngine | null>(null);
+  const rafRef = useRef<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const isPlayingRef = useRef(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [bpm, setBpm] = useState<number | null>(initialBpm);
   const [effects, setEffects] = useState<Record<string, TrackEffects>>(
     () =>
-      initialEffects ||
-      Object.fromEntries(TRACK_DEFS.map((t) => [t.id, defaultEffects()]))
+      initialEffects
+        ? Object.fromEntries(
+            TRACK_DEFS.map((t) => [t.id, normalizeEffects(initialEffects[t.id] ?? defaultEffects())])
+          )
+        : Object.fromEntries(TRACK_DEFS.map((t) => [t.id, defaultEffects()]))
   );
 
+  const effectsRef = useRef(effects);
+  effectsRef.current = effects;
   const anySolo = Object.values(effects).some((e) => e.solo);
+  const anySoloRef = useRef(anySolo);
+  anySoloRef.current = anySolo;
 
   // Initialize engine + tracks
   useEffect(() => {
@@ -73,10 +92,8 @@ const AudioPlayer = ({
     if (firstAudio) {
       const a = firstAudio as HTMLAudioElement;
       a.addEventListener("loadedmetadata", () => setDuration(a.duration));
-      a.addEventListener("timeupdate", () => setCurrentTime(a.currentTime));
       a.addEventListener("ended", () => setIsPlaying(false));
 
-      // BPM detection on the "other" or first track
       const bpmPath = trackPaths.other || Object.values(trackPaths)[0];
       if (bpmPath && initialBpm === null) {
         detectBPM(getTrackUrl(bpmPath)).then(setBpm);
@@ -84,19 +101,58 @@ const AudioPlayer = ({
     }
 
     return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
       engine.dispose();
       engineRef.current = null;
     };
   }, [job.tracks]);
 
-  // Sync effects to engine
+  // Smooth playhead update via rAF while playing
+  useEffect(() => {
+    if (!isPlaying) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      return;
+    }
+    const tick = () => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      const first = engine.tracks.values().next().value;
+      if (first) setCurrentTime(first.audio.currentTime);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [isPlaying]);
+
+  // Apply static effects (EQ/reverb) whenever effects change
   useEffect(() => {
     const engine = engineRef.current;
     if (!engine) return;
     TRACK_DEFS.forEach((def) => {
-      engine.applyEffects(def.id, effects[def.id], anySolo);
+      engine.applyStaticEffects(def.id, effects[def.id]);
+    });
+  }, [effects]);
+
+  // Apply volume/pan (and reschedule automation) when effects, solo, or playhead change
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const t = engine.tracks.values().next().value?.audio.currentTime ?? 0;
+    TRACK_DEFS.forEach((def) => {
+      engine.applyVolumePan(def.id, effects[def.id], anySolo, t, isPlayingRef.current);
     });
   }, [effects, anySolo]);
+
+  const rescheduleAutomation = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const t = engine.tracks.values().next().value?.audio.currentTime ?? 0;
+    TRACK_DEFS.forEach((def) => {
+      engine.applyVolumePan(def.id, effectsRef.current[def.id], anySoloRef.current, t, isPlayingRef.current);
+    });
+  }, []);
 
   const togglePlay = useCallback(async () => {
     const engine = engineRef.current;
@@ -105,20 +161,29 @@ const AudioPlayer = ({
     const audios = Array.from(engine.tracks.values()).map((t) => t.audio);
     if (isPlaying) {
       audios.forEach((a) => a.pause());
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+      rescheduleAutomation();
     } else {
       audios.forEach((a) => a.play().catch(() => {}));
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      rescheduleAutomation();
     }
-    setIsPlaying(!isPlaying);
-  }, [isPlaying]);
+  }, [isPlaying, rescheduleAutomation]);
 
-  const seek = useCallback(([val]: number[]) => {
-    const engine = engineRef.current;
-    if (!engine) return;
-    engine.tracks.forEach((t) => {
-      t.audio.currentTime = val;
-    });
-    setCurrentTime(val);
-  }, []);
+  const seek = useCallback(
+    ([val]: number[]) => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      engine.tracks.forEach((t) => {
+        t.audio.currentTime = val;
+      });
+      setCurrentTime(val);
+      rescheduleAutomation();
+    },
+    [rescheduleAutomation]
+  );
 
   const restart = useCallback(() => {
     const engine = engineRef.current;
@@ -127,7 +192,8 @@ const AudioPlayer = ({
       t.audio.currentTime = 0;
     });
     setCurrentTime(0);
-  }, []);
+    rescheduleAutomation();
+  }, [rescheduleAutomation]);
 
   const updateFx = useCallback((id: string, patch: Partial<TrackEffects>) => {
     setEffects((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -255,6 +321,8 @@ const AudioPlayer = ({
                 fx={effects[meta.id]}
                 onChange={(patch) => updateFx(meta.id, patch)}
                 anySolo={anySolo}
+                duration={duration}
+                currentTime={currentTime}
               />
             </div>
             {job.tracks?.[meta.id] && (
