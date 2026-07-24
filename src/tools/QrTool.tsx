@@ -226,24 +226,26 @@ export default function QrTool() {
             </div>
             <div>
               <h3 className="font-display text-sm font-semibold">Gerar QR Code</h3>
-              <p className="text-[10px] text-muted-foreground">Texto, link ou arquivo</p>
+              <p className="text-[10px] text-muted-foreground">Texto, link, imagem, música ou arquivo</p>
             </div>
           </div>
 
-          <div className="flex glass rounded-xl p-1 mb-3">
+          <div className="grid grid-cols-5 gap-1 glass rounded-xl p-1 mb-3">
             {([
               { k: "text" as QrKind, Icon: TypeIcon, l: "Texto" },
               { k: "url" as QrKind, Icon: LinkIcon, l: "Link" },
+              { k: "image" as QrKind, Icon: ImgIcon, l: "Imagem" },
+              { k: "music" as QrKind, Icon: Music, l: "Música" },
               { k: "file" as QrKind, Icon: FileIcon, l: "Arquivo" },
             ]).map(t => (
               <button key={t.k} onClick={() => setKind(t.k)}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 ${kind === t.k ? "gradient-aurora text-primary-foreground" : "text-muted-foreground"}`}>
+                className={`py-1.5 rounded-lg text-[10px] font-semibold transition flex flex-col items-center justify-center gap-0.5 ${kind === t.k ? "gradient-aurora text-primary-foreground" : "text-muted-foreground"}`}>
                 <t.Icon className="w-3.5 h-3.5" /> {t.l}
               </button>
             ))}
           </div>
 
-          {kind !== "file" ? (
+          {kind === "text" || kind === "url" ? (
             <>
               <textarea
                 value={text} onChange={e => setText(e.target.value)}
@@ -258,17 +260,36 @@ export default function QrTool() {
             </>
           ) : (
             <>
-              <div onClick={() => fileRef.current?.click()}
+              <div onClick={() => !generating && fileRef.current?.click()}
                 className="glass border-2 border-dashed border-border/60 rounded-xl min-h-[140px] flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/60 transition p-4">
                 <input ref={fileRef} type="file" className="hidden"
-                  accept="image/*,audio/*,application/pdf,application/*,text/*"
+                  accept={
+                    kind === "image" ? "image/*"
+                    : kind === "music" ? "audio/*"
+                    : "image/*,audio/*,application/pdf,application/*,text/*"
+                  }
                   onChange={onFile} />
-                <Upload className="w-6 h-6 text-muted-foreground" />
-                <div className="text-xs font-medium">Selecione um arquivo</div>
-                <div className="text-[10px] text-muted-foreground text-center">Imagem, música, PDF ou documento<br/>Limite prático: ~{fmtBytes(MAX_QR_CHARS)}</div>
+                {kind === "image" ? <ImgIcon className="w-6 h-6 text-primary" />
+                  : kind === "music" ? <Music className="w-6 h-6 text-primary" />
+                  : <Upload className="w-6 h-6 text-muted-foreground" />}
+                <div className="text-xs font-medium">
+                  {generating ? "Processando…"
+                    : kind === "image" ? "Selecione uma imagem"
+                    : kind === "music" ? "Selecione um áudio curto"
+                    : "Selecione um arquivo"}
+                </div>
+                <div className="text-[10px] text-muted-foreground text-center">
+                  {kind === "image" ? <>JPG, PNG, WEBP…<br/>Será redimensionada automaticamente para caber no QR</>
+                    : kind === "music" ? <>MP3, OGG, WAV, M4A…<br/>Máx. ~{fmtBytes(MUSIC_MAX_BYTES)} (clipes muito curtos)</>
+                    : <>Imagem, música, PDF ou documento<br/>Limite prático: ~{fmtBytes(MAX_QR_CHARS)}</>}
+                </div>
               </div>
               <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
-                ⚠️ QR codes têm capacidade limitada (~2 KB). Arquivos grandes serão rejeitados. Para arquivos volumosos, hospede-os e gere um QR do link.
+                {kind === "image"
+                  ? "ℹ️ Imagens são reduzidas (tamanho moderado, ~256px) e comprimidas em JPEG até caberem no QR."
+                  : kind === "music"
+                  ? "⚠️ QR codes cabem no máx. ~2 KB. Músicas completas não cabem — para faixas inteiras, hospede o arquivo e gere um QR do link."
+                  : "⚠️ QR codes têm capacidade limitada (~2 KB). Arquivos grandes serão rejeitados."}
               </div>
             </>
           )}
