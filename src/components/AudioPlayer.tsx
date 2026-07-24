@@ -262,7 +262,7 @@ const AudioPlayer = ({
     setIsExporting(true);
     const toastId = toast.loading("Renderizando mix...");
     try {
-      const buffer = await renderMix(exportTracks);
+      const buffer = await renderMix(exportTracks, undefined, { master });
       const wav = audioBufferToWav(buffer);
       const base = file.name.replace(/\.[^.]+$/, "");
       downloadBlob(wav, `${base}_mix.wav`);
@@ -273,7 +273,38 @@ const AudioPlayer = ({
     } finally {
       setIsExporting(false);
     }
-  }, [isExporting, job.tracks, effects, file.name]);
+  }, [isExporting, job.tracks, effects, file.name, master]);
+
+  const handleNormalize = useCallback(async () => {
+    if (normalizing) return;
+    const trackPaths = job.tracks || {};
+    const exportTracks = TRACK_DEFS
+      .filter((def) => trackPaths[def.id])
+      .map((def) => ({
+        id: def.id,
+        url: getTrackUrl(trackPaths[def.id]!),
+        fx: effects[def.id],
+      }));
+    if (exportTracks.length === 0) return;
+    setNormalizing(true);
+    const toastId = toast.loading("Analisando mix...");
+    try {
+      const peak = await computeMixPeak(exportTracks);
+      if (peak < 1e-6) {
+        toast.error("Mix silencioso", { id: toastId });
+        return;
+      }
+      const targetLin = Math.pow(10, -1 / 20); // -1 dBFS
+      const newGain = Math.round(Math.min(400, (targetLin / peak) * 100));
+      setMaster((m) => ({ ...m, gain: Math.min(200, newGain) }));
+      toast.success(`Master ajustado para ${Math.min(200, newGain)}%`, { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error("Falha ao normalizar", { id: toastId });
+    } finally {
+      setNormalizing(false);
+    }
+  }, [normalizing, job.tracks, effects]);
 
   // Waveform
   const waveformBars = 80;
