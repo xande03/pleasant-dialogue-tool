@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
-import { Play, Pause, SkipBack, RotateCcw, Download, Save } from "lucide-react";
+import { Play, Pause, SkipBack, RotateCcw, Download, Save, FileDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { type AudioJob, getTrackUrl } from "@/lib/audio-service";
 import { AudioEngine, type TrackEffects, defaultEffects } from "@/lib/audio-engine";
 import { detectBPM } from "@/lib/bpm-detector";
 import { saveProject, type SavedProject } from "@/lib/projects-store";
+import { renderMix, audioBufferToWav, downloadBlob } from "@/lib/mix-exporter";
 
 interface AudioPlayerProps {
   file: { name: string; size?: number };
@@ -228,6 +229,38 @@ const AudioPlayer = ({
     onSaved?.();
   }, [job, file.name, effects, bpm, onSaved]);
 
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportMix = useCallback(async () => {
+    if (isExporting) return;
+    const trackPaths = job.tracks || {};
+    const exportTracks = TRACK_DEFS
+      .filter((def) => trackPaths[def.id])
+      .map((def) => ({
+        id: def.id,
+        url: getTrackUrl(trackPaths[def.id]!),
+        fx: effects[def.id],
+      }));
+    if (exportTracks.length === 0) {
+      toast.error("Nenhuma faixa disponível");
+      return;
+    }
+    setIsExporting(true);
+    const toastId = toast.loading("Renderizando mix...");
+    try {
+      const buffer = await renderMix(exportTracks);
+      const wav = audioBufferToWav(buffer);
+      const base = file.name.replace(/\.[^.]+$/, "");
+      downloadBlob(wav, `${base}_mix.wav`);
+      toast.success("Mix exportado!", { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error("Falha ao exportar mix", { id: toastId });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [isExporting, job.tracks, effects, file.name]);
+
   // Waveform
   const waveformBars = 80;
   const [waveData] = useState(() =>
@@ -248,6 +281,14 @@ const AudioPlayer = ({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Metronome bpm={bpm} />
+          <Button variant="ghost" size="sm" onClick={handleExportMix} disabled={isExporting}>
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <FileDown className="w-4 h-4 mr-1" />
+            )}
+            Exportar
+          </Button>
           <Button variant="ghost" size="sm" onClick={handleSaveProject}>
             <Save className="w-4 h-4 mr-1" />
             Salvar
