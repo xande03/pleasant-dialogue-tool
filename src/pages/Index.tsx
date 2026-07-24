@@ -508,7 +508,7 @@ const Index = () => {
       finalPrompt += `, aspect ratio ${ratio.ratio}, ${ratio.w}x${ratio.h}, accurate real-world detail, high fidelity`;
       const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(
         finalPrompt,
-      )}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=flux&nofeed=true&enhance=true`;
+      )}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=${encodeURIComponent(model)}&nofeed=true&enhance=true`;
       await preloadImage(url);
       setImgUrl(url);
       toast.success("Imagem gerada!");
@@ -518,7 +518,7 @@ const Index = () => {
     } finally {
       setLoading(false);
     }
-  }, [loading, prompt, style, mode, createFn, ratio]);
+  }, [loading, prompt, style, mode, createFn, ratio, model]);
 
   const download = () => {
     if (!imgUrl) {
