@@ -456,8 +456,10 @@ const Index = () => {
   const showTwoImages = mode === "edit" && currentFn === "compose";
 
   useEffect(() => {
-    document.documentElement.classList.add("dark");
-  }, []);
+    try {
+      localStorage.setItem("ai-studio:model", model);
+    } catch {}
+  }, [model]);
 
   const generate = useCallback(async () => {
     if (loading) return;
