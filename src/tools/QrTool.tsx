@@ -6,7 +6,7 @@ import {
   File as FileIcon, Link as LinkIcon, Type as TypeIcon, History,
 } from "lucide-react";
 
-type QrKind = "text" | "url" | "file";
+type QrKind = "text" | "url" | "file" | "image" | "music";
 type QrItem = {
   id: string;
   createdAt: number;
@@ -20,7 +20,9 @@ type QrItem = {
 };
 
 const STORAGE_KEY = "qr-tool:history:v1";
-const MAX_QR_CHARS = 2000; // safe practical limit for QR v40 with medium EC
+const MAX_QR_CHARS = 2200; // safe practical limit for QR v40 with low EC
+const IMG_TARGET_MAX = 2000; // target payload size for compressed images
+const MUSIC_MAX_BYTES = 2000; // hard cap for audio payload
 
 const load = (): QrItem[] => {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
