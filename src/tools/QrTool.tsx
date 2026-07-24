@@ -141,14 +141,58 @@ export default function QrTool() {
     e.target.value = "";
     if (!f) return;
     try {
+      // Image kind: auto-compress to fit ~2KB (moderate visual size)
+      if (kind === "image") {
+        if (!f.type.startsWith("image/")) {
+          toast.error("Selecione um arquivo de imagem.");
+          return;
+        }
+        setGenerating(true);
+        const compressed = await compressImageToFit(f, IMG_TARGET_MAX);
+        setGenerating(false);
+        if (compressed.length > MAX_QR_CHARS) {
+          toast.error(`Não foi possível reduzir a imagem o suficiente (${fmtBytes(compressed.length)}). Tente uma imagem mais simples.`);
+          return;
+        }
+        await generateFromPayload(compressed, {
+          kind: "image",
+          label: f.name,
+          mime: "image/jpeg",
+          fileName: f.name.replace(/\.[^.]+$/, "") + ".jpg",
+        });
+        return;
+      }
+      // Music kind: hard limit — real songs won't fit; accept only short clips
+      if (kind === "music") {
+        if (!f.type.startsWith("audio/")) {
+          toast.error("Selecione um arquivo de áudio.");
+          return;
+        }
+        if (f.size > MUSIC_MAX_BYTES) {
+          toast.error(`Áudio muito grande (${fmtBytes(f.size)}). QR codes cabem no máx. ~${fmtBytes(MUSIC_MAX_BYTES)}. Use um clipe muito curto ou hospede o áudio e gere um QR do link.`);
+          return;
+        }
+        const dataUrl = await readAsDataURL(f);
+        await generateFromPayload(dataUrl, {
+          kind: "music",
+          label: f.name,
+          mime: f.type,
+          fileName: f.name,
+        });
+        return;
+      }
+      // Generic file
       const dataUrl = await readAsDataURL(f);
-      generateFromPayload(dataUrl, {
+      await generateFromPayload(dataUrl, {
         kind: "file",
         label: f.name,
         mime: f.type,
         fileName: f.name,
       });
-    } catch { toast.error("Falha ao ler arquivo."); }
+    } catch {
+      setGenerating(false);
+      toast.error("Falha ao ler arquivo.");
+    }
   };
 
   const remove = (id: string) => {
@@ -164,7 +208,7 @@ export default function QrTool() {
   };
 
   const downloadPayload = (item: QrItem) => {
-    if (item.kind !== "file") return;
+    if (item.kind !== "file" && item.kind !== "image" && item.kind !== "music") return;
     const a = document.createElement("a");
     a.href = item.payload;
     a.download = item.fileName || "arquivo";
