@@ -20,9 +20,11 @@ type QrItem = {
 };
 
 const STORAGE_KEY = "qr-tool:history:v1";
-const MAX_QR_CHARS = 2200; // safe practical limit for QR v40 with low EC
-const IMG_TARGET_MAX = 2000; // target payload size for compressed images
-const MUSIC_MAX_BYTES = 2000; // hard cap for audio payload
+// QR v40 with EC "L" holds up to 2953 bytes binary — we use EC "L" for media
+// so images/music (as data URLs) can actually fit.
+const MAX_QR_CHARS = 2900;
+const IMG_TARGET_MAX = 2800; // target payload size for compressed images
+const MUSIC_MAX_BYTES = 2100; // hard cap for audio payload (base64 expands ~4/3)
 
 const load = (): QrItem[] => {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
