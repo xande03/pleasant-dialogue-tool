@@ -414,6 +414,16 @@ const Index = () => {
           ", comic book style, graphic novel, bold black outlines, halftone dots, vibrant colors, speech bubbles, dynamic action shot";
     }
 
+    // Expande referências conhecidas (filmes, diretores, artistas, políticos,
+    // fenômenos, movimentos culturais) com descritores visuais canônicos.
+    const { expanded, matches } = expandKnownTerms(finalPrompt);
+    finalPrompt = expanded;
+    if (matches.length) {
+      toast.message(
+        `Referências reconhecidas: ${matches.slice(0, 3).join(", ")}${matches.length > 3 ? "…" : ""}`,
+      );
+    }
+
     try {
       if (GEMINI_KEY) {
         toast.message("Refinando prompt com contexto real...");
