@@ -1,5 +1,8 @@
 // Web Audio graph per track: source -> lowEQ -> midEQ -> highEQ -> pan -> dryGain + reverb(wetGain) -> masterGain -> destination
 
+export type AutomationPoint = { t: number; v: number };
+export type AutomationLane = { enabled: boolean; points: AutomationPoint[] };
+
 export interface TrackEffects {
   volume: number; // 0-100
   muted: boolean;
@@ -9,6 +12,10 @@ export interface TrackEffects {
   mid: number;
   high: number;
   reverb: number; // 0-100 (wet %)
+  automation: {
+    volume: AutomationLane; // v in 0-100
+    pan: AutomationLane; // v in -1..1
+  };
 }
 
 export const defaultEffects = (): TrackEffects => ({
@@ -20,7 +27,27 @@ export const defaultEffects = (): TrackEffects => ({
   mid: 0,
   high: 0,
   reverb: 0,
+  automation: {
+    volume: { enabled: false, points: [] },
+    pan: { enabled: false, points: [] },
+  },
 });
+
+export function valueAt(lane: AutomationLane, t: number, fallback: number): number {
+  if (!lane.enabled || lane.points.length === 0) return fallback;
+  const pts = [...lane.points].sort((a, b) => a.t - b.t);
+  if (t <= pts[0].t) return pts[0].v;
+  if (t >= pts[pts.length - 1].t) return pts[pts.length - 1].v;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (t >= a.t && t <= b.t) {
+      const r = (t - a.t) / (b.t - a.t || 1);
+      return a.v + (b.v - a.v) * r;
+    }
+  }
+  return fallback;
+}
 
 export interface TrackNode {
   audio: HTMLAudioElement;
@@ -47,7 +74,6 @@ export class AudioEngine {
     this.destination = this.ctx.destination;
   }
 
-  // Simple synthetic reverb impulse (decay in seconds, intensity)
   private createImpulseResponse(duration: number, decay: number): AudioBuffer {
     const rate = this.ctx.sampleRate;
     const length = rate * duration;
@@ -83,7 +109,6 @@ export class AudioEngine {
     wetGain.gain.value = 0;
     const masterGain = this.ctx.createGain();
 
-    // Wire graph
     source.connect(lowEQ);
     lowEQ.connect(midEQ);
     midEQ.connect(highEQ);
@@ -91,37 +116,81 @@ export class AudioEngine {
     panner.connect(dryGain);
     panner.connect(this.reverb);
     dryGain.connect(masterGain);
-    // Reverb send has its own wet gain
     this.reverb.connect(wetGain);
     wetGain.connect(masterGain);
     masterGain.connect(this.destination);
 
     const node: TrackNode = {
-      audio,
-      source,
-      lowEQ,
-      midEQ,
-      highEQ,
-      panner,
-      dryGain,
-      wetGain,
-      masterGain,
+      audio, source, lowEQ, midEQ, highEQ, panner, dryGain, wetGain, masterGain,
     };
     this.tracks.set(id, node);
     return audio;
   }
 
-  applyEffects(id: string, fx: TrackEffects, anySolo: boolean) {
+  // Static effects only (EQ + reverb). Volume/pan handled separately.
+  applyStaticEffects(id: string, fx: TrackEffects) {
     const node = this.tracks.get(id);
     if (!node) return;
-    const audible = anySolo ? fx.solo : !fx.muted;
-    node.masterGain.gain.value = audible ? fx.volume / 100 : 0;
-    node.panner.pan.value = Math.max(-1, Math.min(1, fx.pan));
     node.lowEQ.gain.value = fx.low;
     node.midEQ.gain.value = fx.mid;
     node.highEQ.gain.value = fx.high;
     node.dryGain.gain.value = 1 - fx.reverb / 100;
     node.wetGain.gain.value = fx.reverb / 100;
+  }
+
+  // Sets volume+pan, either static or schedules automation from playbackTime forward.
+  applyVolumePan(
+    id: string,
+    fx: TrackEffects,
+    anySolo: boolean,
+    playbackTime: number,
+    isPlaying: boolean
+  ) {
+    const node = this.tracks.get(id);
+    if (!node) return;
+    const now = this.ctx.currentTime;
+    const audible = anySolo ? fx.solo : !fx.muted;
+    const muteGain = audible ? 1 : 0;
+
+    // ---- Volume ----
+    const volParam = node.masterGain.gain;
+    volParam.cancelScheduledValues(now);
+    const volAuto = fx.automation.volume;
+    if (volAuto.enabled && volAuto.points.length > 0) {
+      const startVal = (valueAt(volAuto, playbackTime, fx.volume) / 100) * muteGain;
+      volParam.setValueAtTime(startVal, now);
+      if (isPlaying) {
+        const sorted = [...volAuto.points].sort((a, b) => a.t - b.t);
+        sorted.forEach((p) => {
+          if (p.t > playbackTime) {
+            const when = now + (p.t - playbackTime);
+            volParam.linearRampToValueAtTime((p.v / 100) * muteGain, when);
+          }
+        });
+      }
+    } else {
+      volParam.setValueAtTime((fx.volume / 100) * muteGain, now);
+    }
+
+    // ---- Pan ----
+    const panParam = node.panner.pan;
+    panParam.cancelScheduledValues(now);
+    const panAuto = fx.automation.pan;
+    const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+    if (panAuto.enabled && panAuto.points.length > 0) {
+      panParam.setValueAtTime(clamp(valueAt(panAuto, playbackTime, fx.pan)), now);
+      if (isPlaying) {
+        const sorted = [...panAuto.points].sort((a, b) => a.t - b.t);
+        sorted.forEach((p) => {
+          if (p.t > playbackTime) {
+            const when = now + (p.t - playbackTime);
+            panParam.linearRampToValueAtTime(clamp(p.v), when);
+          }
+        });
+      }
+    } else {
+      panParam.setValueAtTime(clamp(fx.pan), now);
+    }
   }
 
   async resume() {
