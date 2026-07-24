@@ -321,6 +321,8 @@ const AudioPlayer = ({
                 fx={effects[meta.id]}
                 onChange={(patch) => updateFx(meta.id, patch)}
                 anySolo={anySolo}
+                duration={duration}
+                currentTime={currentTime}
               />
             </div>
             {job.tracks?.[meta.id] && (
