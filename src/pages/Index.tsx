@@ -159,7 +159,8 @@ const Index = () => {
         if (enhanced) finalPrompt = enhanced;
       }
       const seed = Math.floor(Math.random() * 1_000_000);
-      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=flux`;
+      finalPrompt += `, aspect ratio ${ratio.ratio}, ${ratio.w}x${ratio.h}`;
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=flux&nofeed=true`;
       await preloadImage(url);
       setImgUrl(url);
       toast.success("Imagem gerada!");
