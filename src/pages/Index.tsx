@@ -193,144 +193,137 @@ const Index = () => {
     { key: "style", Icon: Palette, label: "Estilo" },
   ];
 
+  const scrollTo = (key: NavKey) => {
+    setActivePanel(key);
+    const el = document.getElementById(`sec-${key}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const Section = ({ id, icon: Icon, title, subtitle, children }: any) => (
+    <section id={`sec-${id}`} className="glass rounded-3xl p-5 border border-border/40">
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="w-9 h-9 rounded-xl gradient-aurora flex items-center justify-center glow-primary">
+          <Icon className="w-4 h-4 text-primary-foreground" />
+        </div>
+        <div>
+          <h3 className="font-display text-base font-semibold leading-tight">{title}</h3>
+          {subtitle && <p className="text-[11px] text-muted-foreground">{subtitle}</p>}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+
   const Panel = () => (
-    <div className="flex flex-col gap-5">
-      {activePanel === "compose" && (
-        <>
-          <div>
-            <h3 className="font-display text-lg font-semibold mb-1">Descreva sua ideia</h3>
-            <p className="text-xs text-muted-foreground mb-3">O prompt é o coração da geração.</p>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Ex: Um gato samurai sob luz neon..."
-              className="w-full h-32 glass rounded-2xl p-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 transition placeholder:text-muted-foreground/60"
-            />
-          </div>
+    <div className="flex flex-col gap-4">
+      <Section id="compose" icon={Wand2} title="Prompt" subtitle="Descreva sua ideia">
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Ex: Um gato samurai sob luz neon..."
+          className="w-full h-28 glass rounded-2xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 transition placeholder:text-muted-foreground/60"
+        />
 
-          {showTwoImages && (
-            <div className="flex flex-col gap-3">
-              <label className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Duas Imagens</label>
-              {[
-                { ref: file1, preview: preview1, set: setPreview1, label: "Primeira Imagem" },
-                { ref: file2, preview: preview2, set: setPreview2, label: "Segunda Imagem" },
-              ].map((u, i) => (
-                <div key={i} onClick={() => u.ref.current?.click()}
-                  className="relative glass border-2 border-dashed border-border/60 rounded-2xl p-4 min-h-[110px] flex flex-col items-center justify-center cursor-pointer hover:border-primary/60 transition overflow-hidden">
-                  <input ref={u.ref} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e, u.set)} />
-                  {u.preview ? (
-                    <img src={u.preview} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                  ) : (
-                    <>
-                      <Upload className="w-5 h-5 text-muted-foreground" />
-                      <div className="text-sm mt-2">{u.label}</div>
-                    </>
-                  )}
-                </div>
-              ))}
-              <button onClick={() => setEditFn("add-remove")}
-                className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/40 transition">
-                <ArrowLeft className="w-4 h-4" /> Voltar
-              </button>
-            </div>
-          )}
-
-          {showMainUpload && (
-            <div onClick={() => fileMain.current?.click()}
-              className="relative glass border-2 border-dashed border-border/60 rounded-2xl p-4 min-h-[120px] flex flex-col items-center justify-center cursor-pointer hover:border-primary/60 transition overflow-hidden">
-              <input ref={fileMain} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e, setPreviewMain)} />
-              {previewMain ? (
-                <img src={previewMain} alt="" className="absolute inset-0 w-full h-full object-cover" />
-              ) : (
-                <>
-                  <Upload className="w-6 h-6 text-muted-foreground" />
-                  <div className="text-sm mt-2">Envie uma imagem</div>
-                  <div className="text-xs text-muted-foreground">PNG, JPG, WebP</div>
-                </>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {activePanel === "mode" && (
-        <>
-          <div>
-            <h3 className="font-display text-lg font-semibold mb-3">Modo de Trabalho</h3>
-            <div className="flex glass rounded-2xl p-1">
-              {(["create", "edit"] as Mode[]).map((m) => (
-                <button key={m} onClick={() => setMode(m)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition ${
-                    mode === m ? "gradient-aurora text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-foreground"
-                  }`}>
-                  {m === "create" ? "Criar" : "Editar"}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-widest text-muted-foreground font-semibold block mb-3">
-              {mode === "create" ? "Estilo de Criação" : "Ferramenta de Edição"}
-            </label>
-            <div className="grid grid-cols-2 gap-2.5">
-              {(mode === "create" ? CREATE_FNS : EDIT_FNS).map((f: any) => {
-                const active = mode === "create" ? createFn === f.id : editFn === f.id;
-                return (
-                  <button key={f.id}
-                    onClick={() => mode === "create" ? setCreateFn(f.id) : setEditFn(f.id)}
-                    className={`p-4 rounded-2xl border flex flex-col items-center gap-2 transition ${
-                      active
-                        ? "bg-primary/15 border-primary/60 text-primary glow-primary"
-                        : "glass hover:border-primary/30"
-                    }`}>
-                    <f.Icon className="w-5 h-5" />
-                    <div className="text-sm font-medium">{f.label}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      )}
-
-      {activePanel === "ratio" && (
-        <div>
-          <h3 className="font-display text-lg font-semibold mb-1">Proporção</h3>
-          <p className="text-xs text-muted-foreground mb-3">Escolha a moldura do canvas.</p>
-          <div className="grid grid-cols-3 gap-2.5">
-            {RATIOS.map((r) => (
-              <button key={r.ratio} onClick={() => setRatio(r)} title={r.tooltip}
-                className={`aspect-square rounded-2xl border flex flex-col items-center justify-center gap-2 transition ${
-                  ratio.ratio === r.ratio ? "gradient-aurora border-transparent text-primary-foreground glow-primary" : "glass hover:border-primary/30"
-                }`}>
-                <div className="border-2 border-current rounded-sm"
-                  style={{
-                    width: Math.min(28, (r.w / Math.max(r.w, r.h)) * 26),
-                    height: Math.min(28, (r.h / Math.max(r.w, r.h)) * 26),
-                  }} />
-                <span className="text-xs font-semibold">{r.label}</span>
-              </button>
+        {showTwoImages && (
+          <div className="flex flex-col gap-3 mt-3">
+            <label className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Duas Imagens</label>
+            {[
+              { ref: file1, preview: preview1, set: setPreview1, label: "Primeira Imagem" },
+              { ref: file2, preview: preview2, set: setPreview2, label: "Segunda Imagem" },
+            ].map((u, i) => (
+              <div key={i} onClick={() => u.ref.current?.click()}
+                className="relative glass border-2 border-dashed border-border/60 rounded-2xl p-3 min-h-[90px] flex flex-col items-center justify-center cursor-pointer hover:border-primary/60 transition overflow-hidden">
+                <input ref={u.ref} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e, u.set)} />
+                {u.preview ? (
+                  <img src={u.preview} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  <>
+                    <Upload className="w-5 h-5 text-muted-foreground" />
+                    <div className="text-xs mt-1.5">{u.label}</div>
+                  </>
+                )}
+              </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {activePanel === "style" && (
-        <div>
-          <h3 className="font-display text-lg font-semibold mb-1">Estilo Artístico</h3>
-          <p className="text-xs text-muted-foreground mb-3">Aplique um preset visual.</p>
-          <div className="grid grid-cols-2 gap-2 max-h-[420px] overflow-y-auto scrollbar-thin pr-1">
-            {STYLES.map((s) => (
-              <button key={s.v} onClick={() => setStyle(s.v)}
-                className={`p-3 rounded-xl border text-left text-sm transition ${
-                  style === s.v ? "bg-primary/15 border-primary/60 text-primary" : "glass hover:border-primary/30"
-                }`}>
-                {s.l}
-              </button>
-            ))}
+        {showMainUpload && (
+          <div onClick={() => fileMain.current?.click()}
+            className="relative glass border-2 border-dashed border-border/60 rounded-2xl p-3 min-h-[100px] mt-3 flex flex-col items-center justify-center cursor-pointer hover:border-primary/60 transition overflow-hidden">
+            <input ref={fileMain} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e, setPreviewMain)} />
+            {previewMain ? (
+              <img src={previewMain} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <>
+                <Upload className="w-5 h-5 text-muted-foreground" />
+                <div className="text-xs mt-1.5">Envie uma imagem</div>
+                <div className="text-[10px] text-muted-foreground">PNG, JPG, WebP</div>
+              </>
+            )}
           </div>
+        )}
+      </Section>
+
+      <Section id="mode" icon={SlidersHorizontal} title="Modo" subtitle="Criar ou editar">
+        <div className="flex glass rounded-2xl p-1 mb-3">
+          {(["create", "edit"] as Mode[]).map((m) => (
+            <button key={m} onClick={() => setMode(m)}
+              className={`flex-1 py-2 rounded-xl text-sm font-semibold transition ${
+                mode === m ? "gradient-aurora text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-foreground"
+              }`}>
+              {m === "create" ? "Criar" : "Editar"}
+            </button>
+          ))}
         </div>
-      )}
+        <div className="grid grid-cols-2 gap-2">
+          {(mode === "create" ? CREATE_FNS : EDIT_FNS).map((f: any) => {
+            const active = mode === "create" ? createFn === f.id : editFn === f.id;
+            return (
+              <button key={f.id}
+                onClick={() => mode === "create" ? setCreateFn(f.id) : setEditFn(f.id)}
+                className={`p-3 rounded-2xl border flex flex-col items-center gap-1.5 transition ${
+                  active
+                    ? "bg-primary/15 border-primary/60 text-primary glow-primary"
+                    : "glass hover:border-primary/30"
+                }`}>
+                <f.Icon className="w-4 h-4" />
+                <div className="text-xs font-medium">{f.label}</div>
+              </button>
+            );
+          })}
+        </div>
+      </Section>
+
+      <Section id="ratio" icon={RatioIcon} title="Proporção" subtitle={`Atual: ${ratio.label} • ${ratio.w}×${ratio.h}`}>
+        <div className="grid grid-cols-5 gap-2">
+          {RATIOS.map((r) => (
+            <button key={r.ratio} onClick={() => setRatio(r)} title={r.tooltip}
+              className={`aspect-square rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
+                ratio.ratio === r.ratio ? "gradient-aurora border-transparent text-primary-foreground glow-primary" : "glass hover:border-primary/30"
+              }`}>
+              <div className="border-2 border-current rounded-sm"
+                style={{
+                  width: Math.min(22, (r.w / Math.max(r.w, r.h)) * 20),
+                  height: Math.min(22, (r.h / Math.max(r.w, r.h)) * 20),
+                }} />
+              <span className="text-[10px] font-semibold">{r.label}</span>
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section id="style" icon={Palette} title="Estilo" subtitle="Preset visual">
+        <div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto scrollbar-thin pr-1">
+          {STYLES.map((s) => (
+            <button key={s.v} onClick={() => setStyle(s.v)}
+              className={`p-2.5 rounded-xl border text-left text-xs transition ${
+                style === s.v ? "bg-primary/15 border-primary/60 text-primary" : "glass hover:border-primary/30"
+              }`}>
+              {s.l}
+            </button>
+          ))}
+        </div>
+      </Section>
     </div>
   );
 
