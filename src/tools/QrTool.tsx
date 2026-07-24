@@ -6,7 +6,7 @@ import {
   File as FileIcon, Link as LinkIcon, Type as TypeIcon, History,
 } from "lucide-react";
 
-type QrKind = "text" | "url" | "file";
+type QrKind = "text" | "url" | "file" | "image" | "music";
 type QrItem = {
   id: string;
   createdAt: number;
@@ -20,7 +20,9 @@ type QrItem = {
 };
 
 const STORAGE_KEY = "qr-tool:history:v1";
-const MAX_QR_CHARS = 2000; // safe practical limit for QR v40 with medium EC
+const MAX_QR_CHARS = 2200; // safe practical limit for QR v40 with low EC
+const IMG_TARGET_MAX = 2000; // target payload size for compressed images
+const MUSIC_MAX_BYTES = 2000; // hard cap for audio payload
 
 const load = (): QrItem[] => {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
@@ -49,6 +51,37 @@ const readAsDataURL = (f: File) => new Promise<string>((res, rej) => {
   r.onerror = () => rej(new Error("read fail"));
   r.readAsDataURL(f);
 });
+
+// Compress an image file to fit under ~IMG_TARGET_MAX chars (data URL)
+// Iteratively reduces max dimension and JPEG quality until it fits.
+const compressImageToFit = async (file: File, targetChars = IMG_TARGET_MAX): Promise<string> => {
+  const original = await readAsDataURL(file);
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = () => rej(new Error("decode"));
+    i.src = original;
+  });
+  const sizes = [256, 192, 160, 128, 96, 80, 64, 48, 32];
+  const qualities = [0.72, 0.6, 0.5, 0.4, 0.3, 0.22, 0.15];
+  let best = "";
+  for (const maxDim of sizes) {
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * scale));
+    const h = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    for (const q of qualities) {
+      const url = canvas.toDataURL("image/jpeg", q);
+      if (url.length <= targetChars) return url;
+      best = url;
+    }
+  }
+  return best; // may still be > target; caller will validate
+};
 
 export default function QrTool() {
   const [kind, setKind] = useState<QrKind>("text");
@@ -108,14 +141,58 @@ export default function QrTool() {
     e.target.value = "";
     if (!f) return;
     try {
+      // Image kind: auto-compress to fit ~2KB (moderate visual size)
+      if (kind === "image") {
+        if (!f.type.startsWith("image/")) {
+          toast.error("Selecione um arquivo de imagem.");
+          return;
+        }
+        setGenerating(true);
+        const compressed = await compressImageToFit(f, IMG_TARGET_MAX);
+        setGenerating(false);
+        if (compressed.length > MAX_QR_CHARS) {
+          toast.error(`Não foi possível reduzir a imagem o suficiente (${fmtBytes(compressed.length)}). Tente uma imagem mais simples.`);
+          return;
+        }
+        await generateFromPayload(compressed, {
+          kind: "image",
+          label: f.name,
+          mime: "image/jpeg",
+          fileName: f.name.replace(/\.[^.]+$/, "") + ".jpg",
+        });
+        return;
+      }
+      // Music kind: hard limit — real songs won't fit; accept only short clips
+      if (kind === "music") {
+        if (!f.type.startsWith("audio/")) {
+          toast.error("Selecione um arquivo de áudio.");
+          return;
+        }
+        if (f.size > MUSIC_MAX_BYTES) {
+          toast.error(`Áudio muito grande (${fmtBytes(f.size)}). QR codes cabem no máx. ~${fmtBytes(MUSIC_MAX_BYTES)}. Use um clipe muito curto ou hospede o áudio e gere um QR do link.`);
+          return;
+        }
+        const dataUrl = await readAsDataURL(f);
+        await generateFromPayload(dataUrl, {
+          kind: "music",
+          label: f.name,
+          mime: f.type,
+          fileName: f.name,
+        });
+        return;
+      }
+      // Generic file
       const dataUrl = await readAsDataURL(f);
-      generateFromPayload(dataUrl, {
+      await generateFromPayload(dataUrl, {
         kind: "file",
         label: f.name,
         mime: f.type,
         fileName: f.name,
       });
-    } catch { toast.error("Falha ao ler arquivo."); }
+    } catch {
+      setGenerating(false);
+      toast.error("Falha ao ler arquivo.");
+    }
   };
 
   const remove = (id: string) => {
@@ -131,7 +208,7 @@ export default function QrTool() {
   };
 
   const downloadPayload = (item: QrItem) => {
-    if (item.kind !== "file") return;
+    if (item.kind !== "file" && item.kind !== "image" && item.kind !== "music") return;
     const a = document.createElement("a");
     a.href = item.payload;
     a.download = item.fileName || "arquivo";
@@ -149,24 +226,26 @@ export default function QrTool() {
             </div>
             <div>
               <h3 className="font-display text-sm font-semibold">Gerar QR Code</h3>
-              <p className="text-[10px] text-muted-foreground">Texto, link ou arquivo</p>
+              <p className="text-[10px] text-muted-foreground">Texto, link, imagem, música ou arquivo</p>
             </div>
           </div>
 
-          <div className="flex glass rounded-xl p-1 mb-3">
+          <div className="grid grid-cols-5 gap-1 glass rounded-xl p-1 mb-3">
             {([
               { k: "text" as QrKind, Icon: TypeIcon, l: "Texto" },
               { k: "url" as QrKind, Icon: LinkIcon, l: "Link" },
+              { k: "image" as QrKind, Icon: ImgIcon, l: "Imagem" },
+              { k: "music" as QrKind, Icon: Music, l: "Música" },
               { k: "file" as QrKind, Icon: FileIcon, l: "Arquivo" },
             ]).map(t => (
               <button key={t.k} onClick={() => setKind(t.k)}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 ${kind === t.k ? "gradient-aurora text-primary-foreground" : "text-muted-foreground"}`}>
+                className={`py-1.5 rounded-lg text-[10px] font-semibold transition flex flex-col items-center justify-center gap-0.5 ${kind === t.k ? "gradient-aurora text-primary-foreground" : "text-muted-foreground"}`}>
                 <t.Icon className="w-3.5 h-3.5" /> {t.l}
               </button>
             ))}
           </div>
 
-          {kind !== "file" ? (
+          {kind === "text" || kind === "url" ? (
             <>
               <textarea
                 value={text} onChange={e => setText(e.target.value)}
@@ -181,17 +260,36 @@ export default function QrTool() {
             </>
           ) : (
             <>
-              <div onClick={() => fileRef.current?.click()}
+              <div onClick={() => !generating && fileRef.current?.click()}
                 className="glass border-2 border-dashed border-border/60 rounded-xl min-h-[140px] flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/60 transition p-4">
                 <input ref={fileRef} type="file" className="hidden"
-                  accept="image/*,audio/*,application/pdf,application/*,text/*"
+                  accept={
+                    kind === "image" ? "image/*"
+                    : kind === "music" ? "audio/*"
+                    : "image/*,audio/*,application/pdf,application/*,text/*"
+                  }
                   onChange={onFile} />
-                <Upload className="w-6 h-6 text-muted-foreground" />
-                <div className="text-xs font-medium">Selecione um arquivo</div>
-                <div className="text-[10px] text-muted-foreground text-center">Imagem, música, PDF ou documento<br/>Limite prático: ~{fmtBytes(MAX_QR_CHARS)}</div>
+                {kind === "image" ? <ImgIcon className="w-6 h-6 text-primary" />
+                  : kind === "music" ? <Music className="w-6 h-6 text-primary" />
+                  : <Upload className="w-6 h-6 text-muted-foreground" />}
+                <div className="text-xs font-medium">
+                  {generating ? "Processando…"
+                    : kind === "image" ? "Selecione uma imagem"
+                    : kind === "music" ? "Selecione um áudio curto"
+                    : "Selecione um arquivo"}
+                </div>
+                <div className="text-[10px] text-muted-foreground text-center">
+                  {kind === "image" ? <>JPG, PNG, WEBP…<br/>Será redimensionada automaticamente para caber no QR</>
+                    : kind === "music" ? <>MP3, OGG, WAV, M4A…<br/>Máx. ~{fmtBytes(MUSIC_MAX_BYTES)} (clipes muito curtos)</>
+                    : <>Imagem, música, PDF ou documento<br/>Limite prático: ~{fmtBytes(MAX_QR_CHARS)}</>}
+                </div>
               </div>
               <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
-                ⚠️ QR codes têm capacidade limitada (~2 KB). Arquivos grandes serão rejeitados. Para arquivos volumosos, hospede-os e gere um QR do link.
+                {kind === "image"
+                  ? "ℹ️ Imagens são reduzidas (tamanho moderado, ~256px) e comprimidas em JPEG até caberem no QR."
+                  : kind === "music"
+                  ? "⚠️ QR codes cabem no máx. ~2 KB. Músicas completas não cabem — para faixas inteiras, hospede o arquivo e gere um QR do link."
+                  : "⚠️ QR codes têm capacidade limitada (~2 KB). Arquivos grandes serão rejeitados."}
               </div>
             </>
           )}
@@ -261,7 +359,7 @@ export default function QrTool() {
                 className="gradient-aurora text-primary-foreground font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 glow-primary">
                 <Download className="w-4 h-4" /> Baixar QR (PNG)
               </button>
-              {current.kind === "file" && (
+              {(current.kind === "file" || current.kind === "image" || current.kind === "music") && (
                 <button onClick={() => downloadPayload(current)}
                   className="glass-strong font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 hover:border-primary">
                   <Download className="w-4 h-4" /> Baixar arquivo
