@@ -1,18 +1,26 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
-import { Play, Pause, SkipBack, RotateCcw, Download } from "lucide-react";
+import { Play, Pause, SkipBack, RotateCcw, Download, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import TrackControls, { type Track } from "./TrackControls";
+import { toast } from "sonner";
+import TrackControls, { type TrackMeta } from "./TrackControls";
+import Metronome from "./Metronome";
 import { type AudioJob, getTrackUrl } from "@/lib/audio-service";
+import { AudioEngine, type TrackEffects, defaultEffects } from "@/lib/audio-engine";
+import { detectBPM } from "@/lib/bpm-detector";
+import { saveProject, type SavedProject } from "@/lib/projects-store";
 
 interface AudioPlayerProps {
-  file: File;
+  file: { name: string; size?: number };
   job: AudioJob;
+  initialEffects?: Record<string, TrackEffects>;
+  initialBpm?: number | null;
   onReset: () => void;
+  onSaved?: () => void;
 }
 
-const TRACK_DEFS: { id: string; name: string; color: string }[] = [
+const TRACK_DEFS: TrackMeta[] = [
   { id: "vocals", name: "Vocais", color: "hsl(160, 84%, 39%)" },
   { id: "drums", name: "Bateria", color: "hsl(280, 60%, 55%)" },
   { id: "bass", name: "Baixo", color: "hsl(25, 95%, 53%)" },
@@ -25,66 +33,76 @@ const formatTime = (s: number) => {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 };
 
-const AudioPlayer = ({ file, job, onReset }: AudioPlayerProps) => {
-  const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
+const AudioPlayer = ({
+  file,
+  job,
+  initialEffects,
+  initialBpm = null,
+  onReset,
+  onSaved,
+}: AudioPlayerProps) => {
+  const engineRef = useRef<AudioEngine | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [tracks, setTracks] = useState<Track[]>(
-    TRACK_DEFS.map((t) => ({ ...t, volume: 80, muted: false, solo: false }))
+  const [bpm, setBpm] = useState<number | null>(initialBpm);
+  const [effects, setEffects] = useState<Record<string, TrackEffects>>(
+    () =>
+      initialEffects ||
+      Object.fromEntries(TRACK_DEFS.map((t) => [t.id, defaultEffects()]))
   );
 
-  const anySolo = tracks.some((t) => t.solo);
+  const anySolo = Object.values(effects).some((e) => e.solo);
 
-  // Initialize audio elements for each separated track
+  // Initialize engine + tracks
   useEffect(() => {
-    const refs: Record<string, HTMLAudioElement> = {};
+    const engine = new AudioEngine();
+    engineRef.current = engine;
     const trackPaths = job.tracks || {};
+    let firstAudio: HTMLAudioElement | null = null;
 
     TRACK_DEFS.forEach((def) => {
       const path = trackPaths[def.id];
       if (path) {
         const url = getTrackUrl(path);
-        const audio = new Audio(url);
-        audio.crossOrigin = "anonymous";
-        refs[def.id] = audio;
+        const audio = engine.addTrack(def.id, url);
+        if (!firstAudio) firstAudio = audio;
       }
     });
 
-    // Use first available track for timing
-    const firstAudio = Object.values(refs)[0];
     if (firstAudio) {
-      firstAudio.addEventListener("loadedmetadata", () =>
-        setDuration(firstAudio.duration)
-      );
-      firstAudio.addEventListener("timeupdate", () =>
-        setCurrentTime(firstAudio.currentTime)
-      );
-      firstAudio.addEventListener("ended", () => setIsPlaying(false));
+      const a = firstAudio as HTMLAudioElement;
+      a.addEventListener("loadedmetadata", () => setDuration(a.duration));
+      a.addEventListener("timeupdate", () => setCurrentTime(a.currentTime));
+      a.addEventListener("ended", () => setIsPlaying(false));
+
+      // BPM detection on the "other" or first track
+      const bpmPath = trackPaths.other || Object.values(trackPaths)[0];
+      if (bpmPath && initialBpm === null) {
+        detectBPM(getTrackUrl(bpmPath)).then(setBpm);
+      }
     }
 
-    audioRefs.current = refs;
-
     return () => {
-      Object.values(refs).forEach((a) => {
-        a.pause();
-        a.src = "";
-      });
+      engine.dispose();
+      engineRef.current = null;
     };
   }, [job.tracks]);
 
-  // Sync volumes with track state
+  // Sync effects to engine
   useEffect(() => {
-    tracks.forEach((track) => {
-      const audio = audioRefs.current[track.id];
-      if (!audio) return;
-      const isAudible = anySolo ? track.solo : !track.muted;
-      audio.volume = isAudible ? track.volume / 100 : 0;
+    const engine = engineRef.current;
+    if (!engine) return;
+    TRACK_DEFS.forEach((def) => {
+      engine.applyEffects(def.id, effects[def.id], anySolo);
     });
-  }, [tracks, anySolo]);
+  }, [effects, anySolo]);
 
-  const togglePlay = useCallback(() => {
-    const audios = Object.values(audioRefs.current);
+  const togglePlay = useCallback(async () => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    await engine.resume();
+    const audios = Array.from(engine.tracks.values()).map((t) => t.audio);
     if (isPlaying) {
       audios.forEach((a) => a.pause());
     } else {
@@ -94,33 +112,25 @@ const AudioPlayer = ({ file, job, onReset }: AudioPlayerProps) => {
   }, [isPlaying]);
 
   const seek = useCallback(([val]: number[]) => {
-    Object.values(audioRefs.current).forEach((a) => {
-      a.currentTime = val;
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.tracks.forEach((t) => {
+      t.audio.currentTime = val;
     });
     setCurrentTime(val);
   }, []);
 
   const restart = useCallback(() => {
-    Object.values(audioRefs.current).forEach((a) => {
-      a.currentTime = 0;
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.tracks.forEach((t) => {
+      t.audio.currentTime = 0;
     });
     setCurrentTime(0);
   }, []);
 
-  const handleVolumeChange = useCallback((id: string, volume: number) => {
-    setTracks((prev) => prev.map((t) => (t.id === id ? { ...t, volume } : t)));
-  }, []);
-
-  const handleMuteToggle = useCallback((id: string) => {
-    setTracks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, muted: !t.muted } : t))
-    );
-  }, []);
-
-  const handleSoloToggle = useCallback((id: string) => {
-    setTracks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, solo: !t.solo } : t))
-    );
+  const updateFx = useCallback((id: string, patch: Partial<TrackEffects>) => {
+    setEffects((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }, []);
 
   const handleDownload = useCallback(
@@ -136,7 +146,23 @@ const AudioPlayer = ({ file, job, onReset }: AudioPlayerProps) => {
     [job.tracks, file.name]
   );
 
-  // Waveform visualization
+  const handleSaveProject = useCallback(() => {
+    const project: SavedProject = {
+      id: crypto.randomUUID(),
+      jobId: job.id,
+      filename: file.name,
+      tracks: job.tracks || {},
+      effects,
+      bpm,
+      savedAt: new Date().toISOString(),
+      thumbnailColor: TRACK_DEFS[Math.floor(Math.random() * TRACK_DEFS.length)].color,
+    };
+    saveProject(project);
+    toast.success("Projeto salvo na biblioteca");
+    onSaved?.();
+  }, [job, file.name, effects, bpm, onSaved]);
+
+  // Waveform
   const waveformBars = 80;
   const [waveData] = useState(() =>
     Array.from({ length: waveformBars }, () => 0.15 + Math.random() * 0.85)
@@ -149,35 +175,34 @@ const AudioPlayer = ({ file, job, onReset }: AudioPlayerProps) => {
       animate={{ opacity: 1, y: 0 }}
       className="max-w-3xl mx-auto px-4 py-8 space-y-6"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold truncate max-w-md">{file.name}</h2>
-          <p className="text-sm text-muted-foreground">
-            {(file.size / (1024 * 1024)).toFixed(1)} MB · Separado por IA
-          </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold truncate">{file.name}</h2>
+          <p className="text-sm text-muted-foreground">Mixer · Separado por IA</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={onReset}>
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Nova música
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Metronome bpm={bpm} />
+          <Button variant="ghost" size="sm" onClick={handleSaveProject}>
+            <Save className="w-4 h-4 mr-1" />
+            Salvar
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onReset}>
+            <RotateCcw className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
-      {/* Waveform */}
       <div className="bg-card rounded-xl border border-border p-4">
         <div className="flex items-end gap-[2px] h-24 w-full">
           {waveData.map((h, i) => {
-            const barProgress = i / waveformBars;
-            const isPast = barProgress < progress;
+            const isPast = i / waveformBars < progress;
             return (
               <div
                 key={i}
                 className="flex-1 rounded-sm transition-colors duration-100"
                 style={{
                   height: `${h * 100}%`,
-                  backgroundColor: isPast
-                    ? "hsl(var(--primary))"
-                    : "hsl(var(--muted))",
+                  backgroundColor: isPast ? "hsl(var(--primary))" : "hsl(var(--muted))",
                 }}
               />
             );
@@ -207,23 +232,18 @@ const AudioPlayer = ({ file, job, onReset }: AudioPlayerProps) => {
             size="icon"
             className="w-12 h-12 rounded-full glow-primary"
           >
-            {isPlaying ? (
-              <Pause className="w-5 h-5" />
-            ) : (
-              <Play className="w-5 h-5 ml-0.5" />
-            )}
+            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
           </Button>
         </div>
       </div>
 
-      {/* Track Controls */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Faixas separadas
         </h3>
-        {tracks.map((track, i) => (
+        {TRACK_DEFS.map((meta, i) => (
           <motion.div
-            key={track.id}
+            key={meta.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
@@ -231,18 +251,17 @@ const AudioPlayer = ({ file, job, onReset }: AudioPlayerProps) => {
           >
             <div className="flex-1">
               <TrackControls
-                track={track}
-                onVolumeChange={handleVolumeChange}
-                onMuteToggle={handleMuteToggle}
-                onSoloToggle={handleSoloToggle}
+                meta={meta}
+                fx={effects[meta.id]}
+                onChange={(patch) => updateFx(meta.id, patch)}
                 anySolo={anySolo}
               />
             </div>
-            {job.tracks?.[track.id] && (
+            {job.tracks?.[meta.id] && (
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => handleDownload(track.id)}
+                onClick={() => handleDownload(meta.id)}
                 className="shrink-0"
                 title="Baixar faixa"
               >
