@@ -359,7 +359,7 @@ export default function QrTool() {
                 className="gradient-aurora text-primary-foreground font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 glow-primary">
                 <Download className="w-4 h-4" /> Baixar QR (PNG)
               </button>
-              {current.kind === "file" && (
+              {(current.kind === "file" || current.kind === "image" || current.kind === "music") && (
                 <button onClick={() => downloadPayload(current)}
                   className="glass-strong font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 hover:border-primary">
                   <Download className="w-4 h-4" /> Baixar arquivo
