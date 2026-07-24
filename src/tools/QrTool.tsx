@@ -220,9 +220,10 @@ export default function QrTool() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4 lg:p-6 min-h-full">
+    <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4 lg:p-6 min-h-full w-full max-w-full overflow-x-hidden">
       {/* Left: input */}
-      <div className="lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col gap-3">
+      <div className="w-full lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col gap-3 min-w-0">
+
         <section className="glass rounded-2xl p-4 border border-border/40">
           <div className="flex items-center gap-2.5 mb-3">
             <div className="w-8 h-8 rounded-lg gradient-aurora flex items-center justify-center glow-primary">
