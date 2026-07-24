@@ -20,7 +20,7 @@ interface TrackControlsProps {
   currentTime: number;
 }
 
-const TrackControls = ({ meta, fx, onChange, anySolo }: TrackControlsProps) => {
+const TrackControls = ({ meta, fx, onChange, anySolo, duration, currentTime }: TrackControlsProps) => {
   const [expanded, setExpanded] = useState(false);
   const audible = fx.solo || (!anySolo && !fx.muted);
 
@@ -127,6 +127,35 @@ const TrackControls = ({ meta, fx, onChange, anySolo }: TrackControlsProps) => {
                   onValueChange={([v]) => onChange({ pan: v / 100 })}
                 />
               </div>
+
+              <AutomationLane
+                label="Volume"
+                lane={fx.automation.volume}
+                duration={duration}
+                currentTime={currentTime}
+                color={meta.color}
+                min={0}
+                max={100}
+                format={(v) => `${Math.round(v)}%`}
+                onChange={(lane: Lane) =>
+                  onChange({ automation: { ...fx.automation, volume: lane } })
+                }
+              />
+              <AutomationLane
+                label="Pan"
+                lane={fx.automation.pan}
+                duration={duration}
+                currentTime={currentTime}
+                color={meta.color}
+                min={-1}
+                max={1}
+                format={(v) =>
+                  v === 0 ? "C" : v < 0 ? `L${Math.round(-v * 100)}` : `R${Math.round(v * 100)}`
+                }
+                onChange={(lane: Lane) =>
+                  onChange({ automation: { ...fx.automation, pan: lane } })
+                }
+              />
             </div>
           </motion.div>
         )}
