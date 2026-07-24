@@ -79,18 +79,28 @@ const NAV: { key: NavKey; Icon: typeof Wand2; label: string }[] = [
   { key: "style", Icon: Palette, label: "Estilo" },
 ];
 
+import {
+  expandKnownTerms,
+  getCachedEnhancement,
+  setCachedEnhancement,
+} from "@/lib/prompt-knowledge";
+
 const GEMINI_KEY =
   import.meta.env.VITE_GEMINI_KEY || import.meta.env.VITE_GOOGLE_AI_KEY || "";
 
-const ENHANCE_SYSTEM = `You are a world-class prompt engineer for text-to-image models. Rewrite the user's idea into ONE vivid, detailed English prompt (max ~80 words) that captures REAL-WORLD accuracy of any:
-- natural phenomena (weather, geology, astronomy, biology): use correct scale, physics, lighting, materials
-- cultural / historical references (clothing, architecture, rituals, symbols): use accurate era, region, ethnicity, materials
-- cinematic references (films, directors, genres, camera work): mirror the actual look — lens, film stock, color grading, framing, mood
-- named real people, places, characters, brands: keep them recognizable and factually correct
-Preserve the user's language intent and named entities EXACTLY. Add concrete visual detail (composition, lighting, lens, materials, mood) but do NOT invent facts that contradict reality. Return ONLY the final prompt, no quotes, no preface.`;
+const ENHANCE_SYSTEM = `You are a world-class prompt engineer for text-to-image models. Rewrite the user's idea into ONE vivid, detailed English prompt (max ~90 words) that captures REAL-WORLD accuracy of any:
+- natural phenomena (weather, geology, astronomy, biology): correct scale, physics, lighting, materials.
+- cultural / historical references (clothing, architecture, rituals, symbols): accurate era, region, ethnicity, materials.
+- cinematic references (films, directors, genres, franchises, camera work): mirror the ACTUAL look — lens, film stock, color grading, framing, production design, mood. Examples: "Wes Anderson" = symmetrical pastel; "Villeneuve/Dune" = ochre desert brutalism; "cyberpunk" = neon-drenched rainy megacity; "A24" = 35mm arthouse grain.
+- contemporary music/film/art figures and pop-culture movements (Taylor Swift, Beyoncé, Anitta, Billie Eilish, Bad Bunny, Studio Ghibli, Pixar, Barbiecore, Y2K, cottagecore, solarpunk, vaporwave, dark academia): use their canonical visual signature.
+- named real politicians and public figures: describe factual appearance neutrally (hair, age, typical attire, national symbols) — never invent political statements.
+The user prompt may include a bracketed "[visual references — ...]" block: TREAT IT AS GROUND TRUTH and integrate those descriptors, but drop the brackets in the final output.
+Preserve the user's original named entities EXACTLY (spelling and meaning). Add concrete visual detail (composition, lighting, lens, materials, mood) but do NOT invent facts that contradict reality. Return ONLY the final prompt in English, no quotes, no preface, no explanation.`;
 
 async function enhancePrompt(prompt: string): Promise<string | null> {
   if (!GEMINI_KEY) return null;
+  const cached = getCachedEnhancement(prompt);
+  if (cached) return cached;
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_KEY}`;
     const r = await fetch(url, {
@@ -99,13 +109,15 @@ async function enhancePrompt(prompt: string): Promise<string | null> {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: ENHANCE_SYSTEM }] },
         contents: [{ parts: [{ text: `User idea: "${prompt}"` }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 240 },
+        generationConfig: { temperature: 0.7, maxOutputTokens: 280 },
       }),
     });
     if (!r.ok) return null;
     const d = await r.json();
     const out = d?.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined;
-    return out ? out.trim().replace(/^["']|["']$/g, "") : null;
+    const clean = out ? out.trim().replace(/^["']|["']$/g, "") : null;
+    if (clean) setCachedEnhancement(prompt, clean);
+    return clean;
   } catch {
     return null;
   }
@@ -400,6 +412,16 @@ const Index = () => {
       if (createFn === "comic")
         finalPrompt +=
           ", comic book style, graphic novel, bold black outlines, halftone dots, vibrant colors, speech bubbles, dynamic action shot";
+    }
+
+    // Expande referências conhecidas (filmes, diretores, artistas, políticos,
+    // fenômenos, movimentos culturais) com descritores visuais canônicos.
+    const { expanded, matches } = expandKnownTerms(finalPrompt);
+    finalPrompt = expanded;
+    if (matches.length) {
+      toast.message(
+        `Referências reconhecidas: ${matches.slice(0, 3).join(", ")}${matches.length > 3 ? "…" : ""}`,
+      );
     }
 
     try {
