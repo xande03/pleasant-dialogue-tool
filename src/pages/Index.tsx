@@ -21,12 +21,13 @@ import {
   Target,
   Layers,
   Combine,
+  Cpu,
 } from "lucide-react";
 
 type Mode = "create" | "edit";
 type CreateFn = "free" | "sticker" | "text" | "comic";
 type EditFn = "add-remove" | "retouch" | "style" | "compose";
-type NavKey = "compose" | "ratio" | "style" | "mode";
+type NavKey = "compose" | "ratio" | "style" | "mode" | "model";
 
 const RATIOS = [
   { label: "1:1", ratio: "1:1", w: 1024, h: 1024, tooltip: "Quadrado" },
