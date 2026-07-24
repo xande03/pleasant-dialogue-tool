@@ -64,8 +64,8 @@ const compressImageToFit = async (file: File, targetChars = IMG_TARGET_MAX): Pro
     i.onerror = () => rej(new Error("decode"));
     i.src = original;
   });
-  const sizes = [256, 192, 160, 128, 96, 80, 64, 48, 32];
-  const qualities = [0.72, 0.6, 0.5, 0.4, 0.3, 0.22, 0.15];
+  const sizes = [320, 256, 200, 160, 128, 96, 80, 64, 48];
+  const qualities = [0.78, 0.68, 0.58, 0.48, 0.38, 0.28, 0.2];
   let best = "";
   for (const maxDim of sizes) {
     const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
