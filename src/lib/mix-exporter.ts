@@ -1,11 +1,19 @@
 // Offline render of the full mix (all tracks + effects + automation) into a single WAV file.
 
-import type { TrackEffects, AutomationLane } from "./audio-engine";
+import type { TrackEffects, AutomationLane, MasterSettings } from "./audio-engine";
+import { defaultMaster } from "./audio-engine";
 
 export interface ExportTrack {
   id: string;
   url: string;
   fx: TrackEffects;
+}
+
+export interface RenderOptions {
+  master?: MasterSettings;
+  // When true, master gain is ignored during render and computed to bring peak to `normalizeTargetDb`.
+  normalize?: boolean;
+  normalizeTargetDb?: number; // default -1 dBFS
 }
 
 function makeImpulseResponse(ctx: OfflineAudioContext, duration = 2.5, decay = 2.0): AudioBuffer {
