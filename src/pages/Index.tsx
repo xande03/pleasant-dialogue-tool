@@ -404,7 +404,7 @@ const Index = () => {
             </div>
             <div className="flex gap-1 p-3 overflow-x-auto scrollbar-thin border-b border-border/40">
               {NAV.map(({ key, Icon, label }) => (
-                <button key={key} onClick={() => setActivePanel(key)}
+                <button key={key} onClick={() => scrollTo(key)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm whitespace-nowrap transition ${
                     activePanel === key ? "gradient-aurora text-primary-foreground" : "glass text-muted-foreground"
                   }`}>
