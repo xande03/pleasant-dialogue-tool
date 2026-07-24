@@ -432,6 +432,13 @@ const Index = () => {
   const [editFn, setEditFn] = useState<EditFn>("add-remove");
   const [prompt, setPrompt] = useState("");
   const [style, setStyle] = useState("");
+  const [model, setModel] = useState<string>(() => {
+    try {
+      return localStorage.getItem("ai-studio:model") || "flux";
+    } catch {
+      return "flux";
+    }
+  });
   const [ratio, setRatio] = useState(RATIOS[0]);
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
