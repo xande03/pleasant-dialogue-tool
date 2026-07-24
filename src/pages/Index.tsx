@@ -21,12 +21,13 @@ import {
   Target,
   Layers,
   Combine,
+  Cpu,
 } from "lucide-react";
 
 type Mode = "create" | "edit";
 type CreateFn = "free" | "sticker" | "text" | "comic";
 type EditFn = "add-remove" | "retouch" | "style" | "compose";
-type NavKey = "compose" | "ratio" | "style" | "mode";
+type NavKey = "compose" | "ratio" | "style" | "mode" | "model";
 
 const RATIOS = [
   { label: "1:1", ratio: "1:1", w: 1024, h: 1024, tooltip: "Quadrado" },
@@ -72,9 +73,19 @@ const EDIT_FNS: { id: EditFn; Icon: typeof Plus; label: string }[] = [
   { id: "compose", Icon: Combine, label: "Unir" },
 ];
 
+const MODELS = [
+  { v: "flux", l: "Flux", desc: "Padrão — equilíbrio geral" },
+  { v: "flux-realism", l: "Flux Realism", desc: "Fotorrealismo" },
+  { v: "flux-anime", l: "Flux Anime", desc: "Anime / mangá" },
+  { v: "flux-3d", l: "Flux 3D", desc: "Render 3D estilizado" },
+  { v: "flux-cablyai", l: "Flux Cably", desc: "Ilustração criativa" },
+  { v: "turbo", l: "Turbo", desc: "Rápido, baixa latência" },
+];
+
 const NAV: { key: NavKey; Icon: typeof Wand2; label: string }[] = [
   { key: "compose", Icon: Wand2, label: "Prompt" },
   { key: "mode", Icon: SlidersHorizontal, label: "Modo" },
+  { key: "model", Icon: Cpu, label: "Modelo" },
   { key: "ratio", Icon: RatioIcon, label: "Proporção" },
   { key: "style", Icon: Palette, label: "Estilo" },
 ];
@@ -175,6 +186,8 @@ type PanelProps = {
   setRatio: (r: (typeof RATIOS)[number]) => void;
   style: string;
   setStyle: (s: string) => void;
+  model: string;
+  setModel: (m: string) => void;
   showMainUpload: boolean;
   showTwoImages: boolean;
   previewMain: string | null;
@@ -312,6 +325,54 @@ const Panel = (p: PanelProps) => {
       </Section>
 
       <Section
+        id="model"
+        icon={Cpu}
+        title="Modelo"
+        subtitle={`Motor: ${MODELS.find((m) => m.v === p.model)?.l ?? p.model}`}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {MODELS.map((m) => (
+            <button
+              key={m.v}
+              onClick={() => p.setModel(m.v)}
+              className={`p-2.5 rounded-xl border text-left transition ${
+                p.model === m.v
+                  ? "bg-primary/15 border-primary/60 text-primary glow-primary"
+                  : "glass hover:border-primary/30"
+              }`}
+            >
+              <div className="text-xs font-semibold">{m.l}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">{m.desc}</div>
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section
+        id="model"
+        icon={Cpu}
+        title="Modelo"
+        subtitle={`Motor: ${MODELS.find((m) => m.v === p.model)?.l ?? p.model}`}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {MODELS.map((m) => (
+            <button
+              key={m.v}
+              onClick={() => p.setModel(m.v)}
+              className={`p-2.5 rounded-xl border text-left transition ${
+                p.model === m.v
+                  ? "bg-primary/15 border-primary/60 text-primary glow-primary"
+                  : "glass hover:border-primary/30"
+              }`}
+            >
+              <div className="text-xs font-semibold">{m.l}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">{m.desc}</div>
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section
         id="ratio"
         icon={RatioIcon}
         title="Proporção"
@@ -371,6 +432,13 @@ const Index = () => {
   const [editFn, setEditFn] = useState<EditFn>("add-remove");
   const [prompt, setPrompt] = useState("");
   const [style, setStyle] = useState("");
+  const [model, setModel] = useState<string>(() => {
+    try {
+      return localStorage.getItem("ai-studio:model") || "flux";
+    } catch {
+      return "flux";
+    }
+  });
   const [ratio, setRatio] = useState(RATIOS[0]);
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -390,6 +458,12 @@ const Index = () => {
   useEffect(() => {
     document.documentElement.classList.add("dark");
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("ai-studio:model", model);
+    } catch {}
+  }, [model]);
 
   const generate = useCallback(async () => {
     if (loading) return;
@@ -434,7 +508,7 @@ const Index = () => {
       finalPrompt += `, aspect ratio ${ratio.ratio}, ${ratio.w}x${ratio.h}, accurate real-world detail, high fidelity`;
       const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(
         finalPrompt,
-      )}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=flux&nofeed=true&enhance=true`;
+      )}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=${encodeURIComponent(model)}&nofeed=true&enhance=true`;
       await preloadImage(url);
       setImgUrl(url);
       toast.success("Imagem gerada!");
@@ -444,7 +518,7 @@ const Index = () => {
     } finally {
       setLoading(false);
     }
-  }, [loading, prompt, style, mode, createFn, ratio]);
+  }, [loading, prompt, style, mode, createFn, ratio, model]);
 
   const download = () => {
     if (!imgUrl) {
@@ -486,6 +560,8 @@ const Index = () => {
       setRatio,
       style,
       setStyle,
+      model,
+      setModel,
       showMainUpload,
       showTwoImages,
       previewMain,
@@ -502,6 +578,7 @@ const Index = () => {
       editFn,
       ratio,
       style,
+      model,
       showMainUpload,
       showTwoImages,
       previewMain,
