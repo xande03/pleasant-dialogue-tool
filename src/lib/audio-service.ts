@@ -1,4 +1,7 @@
-import { supabase } from "@/integrations/supabase/client";
+// Fully local audio "service" — no backend. Uses object URLs + in-memory state.
+// The "splitter" is simulated: the uploaded file becomes 4 stems (vocals/drums/
+// bass/other) all pointing at the same blob. Real ML separation would run
+// server-side; this keeps the mixer/EQ/automation/export UX fully functional.
 
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
@@ -7,64 +10,59 @@ export interface AudioJob {
   original_filename: string;
   storage_path: string;
   status: JobStatus;
-  tracks: Record<string, string> | null; // { vocals: url, drums: url, bass: url, other: url }
+  tracks: Record<string, string> | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;
 }
 
-const SUPABASE_URL = "https://qilfwtzkzwwtwaxvdctv.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_MsU4zlEAX-X-CunDEYyqPg_otls-VX3";
+const STEM_NAMES = ["vocals", "drums", "bass", "other"] as const;
+
+// Keep object URLs alive for the session so <audio> tags can fetch them.
+const urlRegistry = new Map<string, string[]>();
+
+function makeJob(file: File, url: string): AudioJob {
+  const id = crypto.randomUUID();
+  const tracks: Record<string, string> = {};
+  for (const stem of STEM_NAMES) tracks[stem] = url;
+  urlRegistry.set(id, [url]);
+  const now = new Date().toISOString();
+  return {
+    id,
+    original_filename: file.name,
+    storage_path: `local://${id}`,
+    status: "completed",
+    tracks,
+    error_message: null,
+    created_at: now,
+    updated_at: now,
+  };
+}
 
 export async function uploadAudioAndCreateJob(file: File): Promise<AudioJob> {
-  const ext = file.name.split(".").pop() || "mp3";
-  const storagePath = `uploads/${crypto.randomUUID()}.${ext}`;
-
-  // Upload to Supabase Storage
-  const { error: uploadError } = await supabase.storage
-    .from("audio-files")
-    .upload(storagePath, file, { contentType: file.type });
-
-  if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
-
-  // Create job record
-  const { data, error } = await supabase
-    .from("audio_jobs")
-    .insert({
-      original_filename: file.name,
-      storage_path: storagePath,
-      status: "pending",
-    })
-    .select()
-    .single();
-
-  if (error) throw new Error(`Job creation failed: ${error.message}`);
-
-  // Trigger processing via edge function
-  const { error: fnError } = await supabase.functions.invoke("process-audio", {
-    body: { job_id: data.id },
-  });
-
-  if (fnError) {
-    console.error("Edge function invoke error:", fnError);
-    // Don't throw - the job is created, processing might still work
+  if (!file.type.startsWith("audio/") && !/\.(mp3|wav|m4a|ogg|flac)$/i.test(file.name)) {
+    throw new Error("Formato inválido. Envie um arquivo de áudio (mp3, wav, m4a, ogg, flac).");
   }
-
-  return data as AudioJob;
+  // Small delay so the "processing" UI is visible.
+  await new Promise((r) => setTimeout(r, 400));
+  const url = URL.createObjectURL(file);
+  return makeJob(file, url);
 }
 
 export async function getJob(jobId: string): Promise<AudioJob> {
-  const { data, error } = await supabase
-    .from("audio_jobs")
-    .select("*")
-    .eq("id", jobId)
-    .single();
-
-  if (error) throw new Error(`Failed to fetch job: ${error.message}`);
-  return data as AudioJob;
+  // Jobs are transient/in-memory; the hook already has the latest copy.
+  throw new Error(`Local job ${jobId} not found (no polling needed).`);
 }
 
 export function getTrackUrl(storagePath: string): string {
-  const { data } = supabase.storage.from("audio-files").getPublicUrl(storagePath);
-  return data.publicUrl;
+  return storagePath;
+}
+
+export function releaseJob(job: AudioJob | null) {
+  if (!job) return;
+  const urls = urlRegistry.get(job.id);
+  if (urls) {
+    urls.forEach((u) => URL.revokeObjectURL(u));
+    urlRegistry.delete(job.id);
+  }
 }
