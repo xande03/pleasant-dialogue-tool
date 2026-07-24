@@ -6,11 +6,18 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import TrackControls, { type TrackMeta } from "./TrackControls";
 import Metronome from "./Metronome";
+import MasterControls from "./MasterControls";
 import { type AudioJob, getTrackUrl } from "@/lib/audio-service";
-import { AudioEngine, type TrackEffects, defaultEffects } from "@/lib/audio-engine";
+import {
+  AudioEngine,
+  type TrackEffects,
+  type MasterSettings,
+  defaultEffects,
+  defaultMaster,
+} from "@/lib/audio-engine";
 import { detectBPM } from "@/lib/bpm-detector";
 import { saveProject, type SavedProject } from "@/lib/projects-store";
-import { renderMix, audioBufferToWav, downloadBlob } from "@/lib/mix-exporter";
+import { renderMix, audioBufferToWav, downloadBlob, computeMixPeak } from "@/lib/mix-exporter";
 
 interface AudioPlayerProps {
   file: { name: string; size?: number };
