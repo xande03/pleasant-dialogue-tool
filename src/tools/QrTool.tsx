@@ -52,6 +52,37 @@ const readAsDataURL = (f: File) => new Promise<string>((res, rej) => {
   r.readAsDataURL(f);
 });
 
+// Compress an image file to fit under ~IMG_TARGET_MAX chars (data URL)
+// Iteratively reduces max dimension and JPEG quality until it fits.
+const compressImageToFit = async (file: File, targetChars = IMG_TARGET_MAX): Promise<string> => {
+  const original = await readAsDataURL(file);
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = () => rej(new Error("decode"));
+    i.src = original;
+  });
+  const sizes = [256, 192, 160, 128, 96, 80, 64, 48, 32];
+  const qualities = [0.72, 0.6, 0.5, 0.4, 0.3, 0.22, 0.15];
+  let best = "";
+  for (const maxDim of sizes) {
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * scale));
+    const h = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    for (const q of qualities) {
+      const url = canvas.toDataURL("image/jpeg", q);
+      if (url.length <= targetChars) return url;
+      best = url;
+    }
+  }
+  return best; // may still be > target; caller will validate
+};
+
 export default function QrTool() {
   const [kind, setKind] = useState<QrKind>("text");
   const [text, setText] = useState("");
