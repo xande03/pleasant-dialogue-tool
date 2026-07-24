@@ -336,7 +336,7 @@ const Index = () => {
         </div>
         <div className="flex flex-col gap-2 flex-1">
           {NAV.map(({ key, Icon, label }) => (
-            <button key={key} onClick={() => setActivePanel(key)} title={label}
+            <button key={key} onClick={() => scrollTo(key)} title={label}
               className={`relative w-12 h-12 rounded-2xl flex items-center justify-center transition group ${
                 activePanel === key ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
               }`}>
