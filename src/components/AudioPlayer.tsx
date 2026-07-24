@@ -74,6 +74,8 @@ const AudioPlayer = ({
           )
         : Object.fromEntries(TRACK_DEFS.map((t) => [t.id, defaultEffects()]))
   );
+  const [master, setMaster] = useState<MasterSettings>(defaultMaster);
+  const [normalizing, setNormalizing] = useState(false);
 
   const effectsRef = useRef(effects);
   effectsRef.current = effects;
