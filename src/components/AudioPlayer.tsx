@@ -155,6 +155,11 @@ const AudioPlayer = ({
     });
   }, [effects, anySolo]);
 
+  // Apply master settings (gain / limiter) to the live engine
+  useEffect(() => {
+    engineRef.current?.applyMaster(master);
+  }, [master]);
+
   const rescheduleAutomation = useCallback(() => {
     const engine = engineRef.current;
     if (!engine) return;
