@@ -159,9 +159,10 @@ export default function ImageStudio() {
   }, [loading, prompt, style, mode, createFn, ratio, model]);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4 lg:p-6 min-h-full">
+    <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4 lg:p-6 min-h-full w-full max-w-full overflow-x-hidden">
       {/* Controls */}
-      <div className="lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col gap-3 overflow-y-auto scrollbar-thin lg:max-h-[calc(100vh-8rem)] pr-1">
+      <div className="w-full lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col gap-3 overflow-y-auto scrollbar-thin lg:max-h-[calc(100vh-8rem)] pr-1 min-w-0">
+
         <Card icon={Wand2} title="Prompt" subtitle="Descreva sua ideia">
           <textarea
             value={prompt} onChange={e => setPrompt(e.target.value)}
