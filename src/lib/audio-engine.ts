@@ -49,6 +49,18 @@ export function valueAt(lane: AutomationLane, t: number, fallback: number): numb
   return fallback;
 }
 
+export interface MasterSettings {
+  gain: number; // 0-200 (%). 100 = unity.
+  limiterEnabled: boolean;
+  limiterThreshold: number; // dB, -24 to 0
+}
+
+export const defaultMaster = (): MasterSettings => ({
+  gain: 100,
+  limiterEnabled: true,
+  limiterThreshold: -1,
+});
+
 export interface TrackNode {
   audio: HTMLAudioElement;
   source: MediaElementAudioSourceNode;
@@ -64,14 +76,30 @@ export interface TrackNode {
 export class AudioEngine {
   ctx: AudioContext;
   reverb: ConvolverNode;
-  destination: AudioNode;
+  masterBus: GainNode;
+  limiter: DynamicsCompressorNode;
+  private limiterEnabled: boolean;
   tracks: Map<string, TrackNode> = new Map();
 
   constructor() {
     this.ctx = new AudioContext();
     this.reverb = this.ctx.createConvolver();
     this.reverb.buffer = this.createImpulseResponse(2.5, 2.0);
-    this.destination = this.ctx.destination;
+
+    // Master chain: tracks -> masterBus -> [limiter] -> destination
+    this.masterBus = this.ctx.createGain();
+    this.masterBus.gain.value = 1;
+
+    this.limiter = this.ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -1;
+    this.limiter.knee.value = 0;
+    this.limiter.ratio.value = 20;
+    this.limiter.attack.value = 0.003;
+    this.limiter.release.value = 0.25;
+
+    this.limiterEnabled = true;
+    this.masterBus.connect(this.limiter);
+    this.limiter.connect(this.ctx.destination);
   }
 
   private createImpulseResponse(duration: number, decay: number): AudioBuffer {
@@ -118,7 +146,7 @@ export class AudioEngine {
     dryGain.connect(masterGain);
     this.reverb.connect(wetGain);
     wetGain.connect(masterGain);
-    masterGain.connect(this.destination);
+    masterGain.connect(this.masterBus);
 
     const node: TrackNode = {
       audio, source, lowEQ, midEQ, highEQ, panner, dryGain, wetGain, masterGain,
