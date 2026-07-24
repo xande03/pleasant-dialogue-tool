@@ -73,9 +73,19 @@ const EDIT_FNS: { id: EditFn; Icon: typeof Plus; label: string }[] = [
   { id: "compose", Icon: Combine, label: "Unir" },
 ];
 
+const MODELS = [
+  { v: "flux", l: "Flux", desc: "Padrão — equilíbrio geral" },
+  { v: "flux-realism", l: "Flux Realism", desc: "Fotorrealismo" },
+  { v: "flux-anime", l: "Flux Anime", desc: "Anime / mangá" },
+  { v: "flux-3d", l: "Flux 3D", desc: "Render 3D estilizado" },
+  { v: "flux-cablyai", l: "Flux Cably", desc: "Ilustração criativa" },
+  { v: "turbo", l: "Turbo", desc: "Rápido, baixa latência" },
+];
+
 const NAV: { key: NavKey; Icon: typeof Wand2; label: string }[] = [
   { key: "compose", Icon: Wand2, label: "Prompt" },
   { key: "mode", Icon: SlidersHorizontal, label: "Modo" },
+  { key: "model", Icon: Cpu, label: "Modelo" },
   { key: "ratio", Icon: RatioIcon, label: "Proporção" },
   { key: "style", Icon: Palette, label: "Estilo" },
 ];
