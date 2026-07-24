@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Sparkles,
@@ -8,7 +8,6 @@ import {
   Rocket,
   Loader2,
   ImageIcon,
-  ArrowLeft,
   Wand2,
   SlidersHorizontal,
   Menu,
@@ -27,8 +26,9 @@ import {
 type Mode = "create" | "edit";
 type CreateFn = "free" | "sticker" | "text" | "comic";
 type EditFn = "add-remove" | "retouch" | "style" | "compose";
+type NavKey = "compose" | "ratio" | "style" | "mode";
 
-const RATIOS: { label: string; ratio: string; w: number; h: number; tooltip: string }[] = [
+const RATIOS = [
   { label: "1:1", ratio: "1:1", w: 1024, h: 1024, tooltip: "Quadrado" },
   { label: "9:16", ratio: "9:16", w: 720, h: 1280, tooltip: "Story" },
   { label: "16:9", ratio: "16:9", w: 1280, h: 720, tooltip: "Cinema" },
@@ -72,8 +72,22 @@ const EDIT_FNS: { id: EditFn; Icon: typeof Plus; label: string }[] = [
   { id: "compose", Icon: Combine, label: "Unir" },
 ];
 
+const NAV: { key: NavKey; Icon: typeof Wand2; label: string }[] = [
+  { key: "compose", Icon: Wand2, label: "Prompt" },
+  { key: "mode", Icon: SlidersHorizontal, label: "Modo" },
+  { key: "ratio", Icon: RatioIcon, label: "Proporção" },
+  { key: "style", Icon: Palette, label: "Estilo" },
+];
+
 const GEMINI_KEY =
   import.meta.env.VITE_GEMINI_KEY || import.meta.env.VITE_GOOGLE_AI_KEY || "";
+
+const ENHANCE_SYSTEM = `You are a world-class prompt engineer for text-to-image models. Rewrite the user's idea into ONE vivid, detailed English prompt (max ~80 words) that captures REAL-WORLD accuracy of any:
+- natural phenomena (weather, geology, astronomy, biology): use correct scale, physics, lighting, materials
+- cultural / historical references (clothing, architecture, rituals, symbols): use accurate era, region, ethnicity, materials
+- cinematic references (films, directors, genres, camera work): mirror the actual look — lens, film stock, color grading, framing, mood
+- named real people, places, characters, brands: keep them recognizable and factually correct
+Preserve the user's language intent and named entities EXACTLY. Add concrete visual detail (composition, lighting, lens, materials, mood) but do NOT invent facts that contradict reality. Return ONLY the final prompt, no quotes, no preface.`;
 
 async function enhancePrompt(prompt: string): Promise<string | null> {
   if (!GEMINI_KEY) return null;
@@ -83,13 +97,18 @@ async function enhancePrompt(prompt: string): Promise<string | null> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `Rewrite this prompt for AI image generation, making it vivid and detailed. Return ONLY the rewritten prompt in English: "${prompt}"` }] }],
+        systemInstruction: { parts: [{ text: ENHANCE_SYSTEM }] },
+        contents: [{ parts: [{ text: `User idea: "${prompt}"` }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 240 },
       }),
     });
     if (!r.ok) return null;
     const d = await r.json();
-    return d?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
-  } catch { return null; }
+    const out = d?.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined;
+    return out ? out.trim().replace(/^["']|["']$/g, "") : null;
+  } catch {
+    return null;
+  }
 }
 
 function preloadImage(url: string) {
@@ -101,36 +120,68 @@ function preloadImage(url: string) {
   });
 }
 
-type NavKey = "compose" | "ratio" | "style" | "mode";
+/* -------------------- STATIC subcomponents (defined outside Index to avoid
+   remount-on-render, which was killing textarea focus on every keystroke). */
 
-const Index = () => {
-  const [mode, setMode] = useState<Mode>("create");
-  const [createFn, setCreateFn] = useState<CreateFn>("free");
-  const [editFn, setEditFn] = useState<EditFn>("add-remove");
-  const [prompt, setPrompt] = useState("");
-  const [style, setStyle] = useState("");
-  const [ratio, setRatio] = useState(RATIOS[0]);
-  const [imgUrl, setImgUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [preview1, setPreview1] = useState<string | null>(null);
-  const [preview2, setPreview2] = useState<string | null>(null);
-  const [previewMain, setPreviewMain] = useState<string | null>(null);
+const Section = ({
+  id,
+  icon: Icon,
+  title,
+  subtitle,
+  children,
+}: {
+  id: string;
+  icon: typeof Wand2;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) => (
+  <section id={`sec-${id}`} className="glass rounded-3xl p-4 sm:p-5 border border-border/40">
+    <div className="flex items-center gap-2.5 mb-4">
+      <div className="w-9 h-9 rounded-xl gradient-aurora flex items-center justify-center glow-primary shrink-0">
+        <Icon className="w-4 h-4 text-primary-foreground" />
+      </div>
+      <div className="min-w-0">
+        <h3 className="font-display text-base font-semibold leading-tight truncate">{title}</h3>
+        {subtitle && <p className="text-[11px] text-muted-foreground truncate">{subtitle}</p>}
+      </div>
+    </div>
+    {children}
+  </section>
+);
 
-  // Sidebar UI state
-  const [sidebarOpen, setSidebarOpen] = useState(false);        // mobile sheet
-  const [activePanel, setActivePanel] = useState<NavKey>("compose");
+type PanelProps = {
+  prompt: string;
+  setPrompt: (v: string) => void;
+  mode: Mode;
+  setMode: (m: Mode) => void;
+  createFn: CreateFn;
+  setCreateFn: (v: CreateFn) => void;
+  editFn: EditFn;
+  setEditFn: (v: EditFn) => void;
+  ratio: (typeof RATIOS)[number];
+  setRatio: (r: (typeof RATIOS)[number]) => void;
+  style: string;
+  setStyle: (s: string) => void;
+  showMainUpload: boolean;
+  showTwoImages: boolean;
+  previewMain: string | null;
+  setPreviewMain: (v: string) => void;
+  preview1: string | null;
+  setPreview1: (v: string) => void;
+  preview2: string | null;
+  setPreview2: (v: string) => void;
+};
 
+const Panel = (p: PanelProps) => {
   const fileMain = useRef<HTMLInputElement>(null);
   const file1 = useRef<HTMLInputElement>(null);
   const file2 = useRef<HTMLInputElement>(null);
 
-  const currentFn: string = mode === "create" ? createFn : editFn;
-  const showMainUpload =
-    (mode === "create" && currentFn !== "free") ||
-    (mode === "edit" && currentFn !== "compose");
-  const showTwoImages = mode === "edit" && currentFn === "compose";
-
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (v: string) => void) => {
+  const handleUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (v: string) => void,
+  ) => {
     const f = e.target.files?.[0];
     if (!f) return;
     const reader = new FileReader();
@@ -138,102 +189,39 @@ const Index = () => {
     reader.readAsDataURL(f);
   };
 
-  const generate = async () => {
-    if (loading) return;
-    if (!prompt.trim()) { toast.error("Por favor, digite um prompt."); return; }
-    setLoading(true);
-    setImgUrl(null);
-
-    let finalPrompt = prompt.trim();
-    if (style) finalPrompt += `, ${style} style`;
-    if (mode === "create") {
-      if (createFn === "sticker") finalPrompt += ", die-cut sticker design, white background, vector art, bold outlines, isolated, cute, colorful";
-      if (createFn === "text") finalPrompt += ", minimalist logo design, vector graphics, simple typography, flat design, centered, professional, clean background";
-      if (createFn === "comic") finalPrompt += ", comic book style, graphic novel, bold black outlines, halftone dots, vibrant colors, speech bubbles, dynamic action shot";
-    }
-
-    try {
-      if (GEMINI_KEY) {
-        toast.message("Refinando prompt...");
-        const enhanced = await enhancePrompt(finalPrompt);
-        if (enhanced) finalPrompt = enhanced;
-      }
-      const seed = Math.floor(Math.random() * 1_000_000);
-      finalPrompt += `, aspect ratio ${ratio.ratio}, ${ratio.w}x${ratio.h}`;
-      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=flux&nofeed=true`;
-      await preloadImage(url);
-      setImgUrl(url);
-      toast.success("Imagem gerada!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Erro na geração. Tente novamente.");
-    } finally { setLoading(false); }
-  };
-
-  const download = () => {
-    if (!imgUrl) { toast.error("Gere uma imagem primeiro."); return; }
-    window.open(imgUrl, "_blank");
-  };
-
-  const editCurrent = () => {
-    if (!imgUrl) { toast.error("Não há imagem para editar."); return; }
-    setPreviewMain(imgUrl);
-    setMode("edit");
-    setEditFn("retouch");
-    setActivePanel("mode");
-    toast.success("Modo edição ativado!");
-  };
-
-  useEffect(() => { document.documentElement.classList.add("dark"); }, []);
-
-  const NAV: { key: NavKey; Icon: typeof Wand2; label: string }[] = [
-    { key: "compose", Icon: Wand2, label: "Prompt" },
-    { key: "mode", Icon: SlidersHorizontal, label: "Modo" },
-    { key: "ratio", Icon: RatioIcon, label: "Proporção" },
-    { key: "style", Icon: Palette, label: "Estilo" },
-  ];
-
-  const scrollTo = (key: NavKey) => {
-    setActivePanel(key);
-    const el = document.getElementById(`sec-${key}`);
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  const Section = ({ id, icon: Icon, title, subtitle, children }: any) => (
-    <section id={`sec-${id}`} className="glass rounded-3xl p-5 border border-border/40">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-9 h-9 rounded-xl gradient-aurora flex items-center justify-center glow-primary">
-          <Icon className="w-4 h-4 text-primary-foreground" />
-        </div>
-        <div>
-          <h3 className="font-display text-base font-semibold leading-tight">{title}</h3>
-          {subtitle && <p className="text-[11px] text-muted-foreground">{subtitle}</p>}
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-
-  const Panel = () => (
+  return (
     <div className="flex flex-col gap-4">
       <Section id="compose" icon={Wand2} title="Prompt" subtitle="Descreva sua ideia">
         <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Ex: Um gato samurai sob luz neon..."
+          value={p.prompt}
+          onChange={(e) => p.setPrompt(e.target.value)}
+          placeholder="Ex: Um gato samurai sob luz neon em Tóquio nos anos 80..."
+          autoComplete="off"
+          spellCheck
           className="w-full h-28 glass rounded-2xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 transition placeholder:text-muted-foreground/60"
         />
 
-        {showTwoImages && (
+        {p.showTwoImages && (
           <div className="flex flex-col gap-3 mt-3">
-            <label className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Duas Imagens</label>
+            <label className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+              Duas Imagens
+            </label>
             {[
-              { ref: file1, preview: preview1, set: setPreview1, label: "Primeira Imagem" },
-              { ref: file2, preview: preview2, set: setPreview2, label: "Segunda Imagem" },
+              { ref: file1, preview: p.preview1, set: p.setPreview1, label: "Primeira Imagem" },
+              { ref: file2, preview: p.preview2, set: p.setPreview2, label: "Segunda Imagem" },
             ].map((u, i) => (
-              <div key={i} onClick={() => u.ref.current?.click()}
-                className="relative glass border-2 border-dashed border-border/60 rounded-2xl p-3 min-h-[90px] flex flex-col items-center justify-center cursor-pointer hover:border-primary/60 transition overflow-hidden">
-                <input ref={u.ref} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e, u.set)} />
+              <div
+                key={i}
+                onClick={() => u.ref.current?.click()}
+                className="relative glass border-2 border-dashed border-border/60 rounded-2xl p-3 min-h-[90px] flex flex-col items-center justify-center cursor-pointer hover:border-primary/60 transition overflow-hidden"
+              >
+                <input
+                  ref={u.ref}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleUpload(e, u.set)}
+                />
                 {u.preview ? (
                   <img src={u.preview} alt="" className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
@@ -247,12 +235,20 @@ const Index = () => {
           </div>
         )}
 
-        {showMainUpload && (
-          <div onClick={() => fileMain.current?.click()}
-            className="relative glass border-2 border-dashed border-border/60 rounded-2xl p-3 min-h-[100px] mt-3 flex flex-col items-center justify-center cursor-pointer hover:border-primary/60 transition overflow-hidden">
-            <input ref={fileMain} type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(e, setPreviewMain)} />
-            {previewMain ? (
-              <img src={previewMain} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        {p.showMainUpload && (
+          <div
+            onClick={() => fileMain.current?.click()}
+            className="relative glass border-2 border-dashed border-border/60 rounded-2xl p-3 min-h-[100px] mt-3 flex flex-col items-center justify-center cursor-pointer hover:border-primary/60 transition overflow-hidden"
+          >
+            <input
+              ref={fileMain}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleUpload(e, p.setPreviewMain)}
+            />
+            {p.previewMain ? (
+              <img src={p.previewMain} alt="" className="absolute inset-0 w-full h-full object-cover" />
             ) : (
               <>
                 <Upload className="w-5 h-5 text-muted-foreground" />
@@ -267,25 +263,34 @@ const Index = () => {
       <Section id="mode" icon={SlidersHorizontal} title="Modo" subtitle="Criar ou editar">
         <div className="flex glass rounded-2xl p-1 mb-3">
           {(["create", "edit"] as Mode[]).map((m) => (
-            <button key={m} onClick={() => setMode(m)}
+            <button
+              key={m}
+              onClick={() => p.setMode(m)}
               className={`flex-1 py-2 rounded-xl text-sm font-semibold transition ${
-                mode === m ? "gradient-aurora text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-foreground"
-              }`}>
+                p.mode === m
+                  ? "gradient-aurora text-primary-foreground shadow-lg"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
               {m === "create" ? "Criar" : "Editar"}
             </button>
           ))}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          {(mode === "create" ? CREATE_FNS : EDIT_FNS).map((f: any) => {
-            const active = mode === "create" ? createFn === f.id : editFn === f.id;
+          {(p.mode === "create" ? CREATE_FNS : EDIT_FNS).map((f: any) => {
+            const active = p.mode === "create" ? p.createFn === f.id : p.editFn === f.id;
             return (
-              <button key={f.id}
-                onClick={() => mode === "create" ? setCreateFn(f.id) : setEditFn(f.id)}
+              <button
+                key={f.id}
+                onClick={() =>
+                  p.mode === "create" ? p.setCreateFn(f.id) : p.setEditFn(f.id)
+                }
                 className={`p-3 rounded-2xl border flex flex-col items-center gap-1.5 transition ${
                   active
                     ? "bg-primary/15 border-primary/60 text-primary glow-primary"
                     : "glass hover:border-primary/30"
-                }`}>
+                }`}
+              >
                 <f.Icon className="w-4 h-4" />
                 <div className="text-xs font-medium">{f.label}</div>
               </button>
@@ -294,18 +299,31 @@ const Index = () => {
         </div>
       </Section>
 
-      <Section id="ratio" icon={RatioIcon} title="Proporção" subtitle={`Atual: ${ratio.label} • ${ratio.w}×${ratio.h}`}>
-        <div className="grid grid-cols-5 gap-2">
+      <Section
+        id="ratio"
+        icon={RatioIcon}
+        title="Proporção"
+        subtitle={`Atual: ${p.ratio.label} • ${p.ratio.w}×${p.ratio.h}`}
+      >
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
           {RATIOS.map((r) => (
-            <button key={r.ratio} onClick={() => setRatio(r)} title={r.tooltip}
+            <button
+              key={r.ratio}
+              onClick={() => p.setRatio(r)}
+              title={r.tooltip}
               className={`aspect-square rounded-xl border flex flex-col items-center justify-center gap-1 transition ${
-                ratio.ratio === r.ratio ? "gradient-aurora border-transparent text-primary-foreground glow-primary" : "glass hover:border-primary/30"
-              }`}>
-              <div className="border-2 border-current rounded-sm"
+                p.ratio.ratio === r.ratio
+                  ? "gradient-aurora border-transparent text-primary-foreground glow-primary"
+                  : "glass hover:border-primary/30"
+              }`}
+            >
+              <div
+                className="border-2 border-current rounded-sm"
                 style={{
                   width: Math.min(22, (r.w / Math.max(r.w, r.h)) * 20),
                   height: Math.min(22, (r.h / Math.max(r.w, r.h)) * 20),
-                }} />
+                }}
+              />
               <span className="text-[10px] font-semibold">{r.label}</span>
             </button>
           ))}
@@ -315,10 +333,15 @@ const Index = () => {
       <Section id="style" icon={Palette} title="Estilo" subtitle="Preset visual">
         <div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto scrollbar-thin pr-1">
           {STYLES.map((s) => (
-            <button key={s.v} onClick={() => setStyle(s.v)}
+            <button
+              key={s.v}
+              onClick={() => p.setStyle(s.v)}
               className={`p-2.5 rounded-xl border text-left text-xs transition ${
-                style === s.v ? "bg-primary/15 border-primary/60 text-primary" : "glass hover:border-primary/30"
-              }`}>
+                p.style === s.v
+                  ? "bg-primary/15 border-primary/60 text-primary"
+                  : "glass hover:border-primary/30"
+              }`}
+            >
               {s.l}
             </button>
           ))}
@@ -326,71 +349,255 @@ const Index = () => {
       </Section>
     </div>
   );
+};
+
+/* ---------------------------------- PAGE --------------------------------- */
+
+const Index = () => {
+  const [mode, setMode] = useState<Mode>("create");
+  const [createFn, setCreateFn] = useState<CreateFn>("free");
+  const [editFn, setEditFn] = useState<EditFn>("add-remove");
+  const [prompt, setPrompt] = useState("");
+  const [style, setStyle] = useState("");
+  const [ratio, setRatio] = useState(RATIOS[0]);
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [preview1, setPreview1] = useState<string | null>(null);
+  const [preview2, setPreview2] = useState<string | null>(null);
+  const [previewMain, setPreviewMain] = useState<string | null>(null);
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<NavKey>("compose");
+
+  const currentFn: string = mode === "create" ? createFn : editFn;
+  const showMainUpload =
+    (mode === "create" && currentFn !== "free") ||
+    (mode === "edit" && currentFn !== "compose");
+  const showTwoImages = mode === "edit" && currentFn === "compose";
+
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
+
+  const generate = useCallback(async () => {
+    if (loading) return;
+    if (!prompt.trim()) {
+      toast.error("Por favor, digite um prompt.");
+      return;
+    }
+    setLoading(true);
+    setImgUrl(null);
+
+    let finalPrompt = prompt.trim();
+    if (style) finalPrompt += `, ${style} style`;
+    if (mode === "create") {
+      if (createFn === "sticker")
+        finalPrompt +=
+          ", die-cut sticker design, white background, vector art, bold outlines, isolated, cute, colorful";
+      if (createFn === "text")
+        finalPrompt +=
+          ", minimalist logo design, vector graphics, simple typography, flat design, centered, professional, clean background";
+      if (createFn === "comic")
+        finalPrompt +=
+          ", comic book style, graphic novel, bold black outlines, halftone dots, vibrant colors, speech bubbles, dynamic action shot";
+    }
+
+    try {
+      if (GEMINI_KEY) {
+        toast.message("Refinando prompt com contexto real...");
+        const enhanced = await enhancePrompt(finalPrompt);
+        if (enhanced) finalPrompt = enhanced;
+      }
+      const seed = Math.floor(Math.random() * 1_000_000);
+      finalPrompt += `, aspect ratio ${ratio.ratio}, ${ratio.w}x${ratio.h}, accurate real-world detail, high fidelity`;
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(
+        finalPrompt,
+      )}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=flux&nofeed=true&enhance=true`;
+      await preloadImage(url);
+      setImgUrl(url);
+      toast.success("Imagem gerada!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro na geração. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, prompt, style, mode, createFn, ratio]);
+
+  const download = () => {
+    if (!imgUrl) {
+      toast.error("Gere uma imagem primeiro.");
+      return;
+    }
+    window.open(imgUrl, "_blank");
+  };
+
+  const editCurrent = () => {
+    if (!imgUrl) {
+      toast.error("Não há imagem para editar.");
+      return;
+    }
+    setPreviewMain(imgUrl);
+    setMode("edit");
+    setEditFn("retouch");
+    setActivePanel("mode");
+    toast.success("Modo edição ativado!");
+  };
+
+  const scrollTo = (key: NavKey) => {
+    setActivePanel(key);
+    const el = document.getElementById(`sec-${key}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const panelProps: PanelProps = useMemo(
+    () => ({
+      prompt,
+      setPrompt,
+      mode,
+      setMode,
+      createFn,
+      setCreateFn,
+      editFn,
+      setEditFn,
+      ratio,
+      setRatio,
+      style,
+      setStyle,
+      showMainUpload,
+      showTwoImages,
+      previewMain,
+      setPreviewMain,
+      preview1,
+      setPreview1,
+      preview2,
+      setPreview2,
+    }),
+    [
+      prompt,
+      mode,
+      createFn,
+      editFn,
+      ratio,
+      style,
+      showMainUpload,
+      showTwoImages,
+      previewMain,
+      preview1,
+      preview2,
+    ],
+  );
 
   return (
     <div className="min-h-screen w-full flex">
-      {/* ICON RAIL */}
-      <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-[76px] z-30 flex-col items-center py-6 gap-6 glass-strong border-r border-border/40">
+      {/* ICON RAIL (desktop) */}
+      <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-[68px] lg:w-[76px] z-30 flex-col items-center py-6 gap-6 glass-strong border-r border-border/40">
         <div className="w-11 h-11 rounded-2xl gradient-aurora flex items-center justify-center glow-primary">
           <Sparkles className="w-5 h-5 text-primary-foreground" />
         </div>
         <div className="flex flex-col gap-2 flex-1">
           {NAV.map(({ key, Icon, label }) => (
-            <button key={key} onClick={() => scrollTo(key)} title={label}
+            <button
+              key={key}
+              onClick={() => scrollTo(key)}
+              title={label}
               className={`relative w-12 h-12 rounded-2xl flex items-center justify-center transition group ${
-                activePanel === key ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-              }`}>
-              {activePanel === key && <span className="absolute -left-[14px] top-2 bottom-2 w-1 rounded-full gradient-aurora" />}
+                activePanel === key
+                  ? "bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+              }`}
+            >
+              {activePanel === key && (
+                <span className="absolute -left-[14px] top-2 bottom-2 w-1 rounded-full gradient-aurora" />
+              )}
               <Icon className="w-5 h-5" />
             </button>
           ))}
         </div>
-        <button onClick={generate} disabled={loading} title="Gerar"
-          className="w-12 h-12 rounded-2xl gradient-aurora glow-primary flex items-center justify-center hover:scale-105 active:scale-95 transition disabled:opacity-50">
-          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Rocket className="w-5 h-5 text-primary-foreground" />}
+        <button
+          onClick={generate}
+          disabled={loading}
+          title="Gerar"
+          className="w-12 h-12 rounded-2xl gradient-aurora glow-primary flex items-center justify-center hover:scale-105 active:scale-95 transition disabled:opacity-50"
+        >
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Rocket className="w-5 h-5 text-primary-foreground" />
+          )}
         </button>
       </nav>
 
       {/* SIDEBAR PANEL (desktop) */}
-      <aside className="hidden md:flex fixed left-[76px] top-0 bottom-0 w-[340px] z-20 flex-col glass-strong border-r border-border/40">
-        <header className="px-6 pt-6 pb-4 border-b border-border/40">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">AI Image Studio</div>
+      <aside className="hidden md:flex fixed left-[68px] lg:left-[76px] top-0 bottom-0 w-[300px] lg:w-[340px] z-20 flex-col glass-strong border-r border-border/40">
+        <header className="px-5 lg:px-6 pt-6 pb-4 border-b border-border/40">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            AI Image Studio
+          </div>
           <h2 className="font-display text-2xl font-bold text-aurora mt-1">Painel</h2>
           <p className="text-xs text-muted-foreground mt-1">Tudo em um só lugar</p>
         </header>
-        <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
-          <Panel />
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-5 lg:px-6 py-5">
+          <Panel {...panelProps} />
         </div>
         <div className="p-4 border-t border-border/40">
-          <button onClick={generate} disabled={loading}
-            className="w-full gradient-aurora text-primary-foreground font-semibold py-3.5 rounded-2xl flex items-center justify-center gap-2 glow-primary hover:-translate-y-0.5 active:translate-y-0 transition disabled:opacity-60">
-            {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Processando...</> : <><Rocket className="w-5 h-5" /> Gerar Imagem</>}
+          <button
+            onClick={generate}
+            disabled={loading}
+            className="w-full gradient-aurora text-primary-foreground font-semibold py-3.5 rounded-2xl flex items-center justify-center gap-2 glow-primary hover:-translate-y-0.5 active:translate-y-0 transition disabled:opacity-60"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" /> Processando...
+              </>
+            ) : (
+              <>
+                <Rocket className="w-5 h-5" /> Gerar Imagem
+              </>
+            )}
           </button>
         </div>
       </aside>
 
       {/* MOBILE TOP BAR */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-30 glass-strong border-b border-border/40 flex items-center justify-between px-4 h-14">
-        <button onClick={() => setSidebarOpen(true)} className="w-10 h-10 rounded-xl glass flex items-center justify-center">
+      <header className="md:hidden fixed top-0 left-0 right-0 z-30 glass-strong border-b border-border/40 flex items-center justify-between px-3 sm:px-4 h-14">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="w-10 h-10 rounded-xl glass flex items-center justify-center"
+          aria-label="Abrir menu"
+        >
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg gradient-aurora flex items-center justify-center">
             <Sparkles className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="font-display font-bold text-aurora">AI Studio</span>
+          <span className="font-display font-bold text-aurora text-sm sm:text-base">
+            AI Studio
+          </span>
         </div>
-        <button onClick={generate} disabled={loading}
-          className="w-10 h-10 rounded-xl gradient-aurora flex items-center justify-center disabled:opacity-60">
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4 text-primary-foreground" />}
+        <button
+          onClick={generate}
+          disabled={loading}
+          className="w-10 h-10 rounded-xl gradient-aurora flex items-center justify-center disabled:opacity-60"
+          aria-label="Gerar"
+        >
+          {loading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Rocket className="w-4 h-4 text-primary-foreground" />
+          )}
         </button>
       </header>
 
       {/* MOBILE SHEET */}
       {sidebarOpen && (
         <div className="md:hidden fixed inset-0 z-40 flex">
-          <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
-          <div className="relative w-[86%] max-w-[360px] h-full glass-strong border-r border-border/40 flex flex-col animate-in slide-in-from-left duration-200">
+          <div
+            className="absolute inset-0 bg-background/70 backdrop-blur-sm"
+            onClick={() => setSidebarOpen(false)}
+          />
+          <div className="relative w-[90%] max-w-[360px] h-full glass-strong border-r border-border/40 flex flex-col animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between p-4 border-b border-border/40">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 rounded-xl gradient-aurora flex items-center justify-center">
@@ -398,27 +605,50 @@ const Index = () => {
                 </div>
                 <span className="font-display font-bold text-aurora">AI Image Studio</span>
               </div>
-              <button onClick={() => setSidebarOpen(false)} className="w-9 h-9 rounded-xl glass flex items-center justify-center">
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="w-9 h-9 rounded-xl glass flex items-center justify-center"
+                aria-label="Fechar menu"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="flex gap-1 p-3 overflow-x-auto scrollbar-thin border-b border-border/40">
               {NAV.map(({ key, Icon, label }) => (
-                <button key={key} onClick={() => scrollTo(key)}
+                <button
+                  key={key}
+                  onClick={() => scrollTo(key)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm whitespace-nowrap transition ${
-                    activePanel === key ? "gradient-aurora text-primary-foreground" : "glass text-muted-foreground"
-                  }`}>
+                    activePanel === key
+                      ? "gradient-aurora text-primary-foreground"
+                      : "glass text-muted-foreground"
+                  }`}
+                >
                   <Icon className="w-4 h-4" /> {label}
                 </button>
               ))}
             </div>
-            <div className="flex-1 overflow-y-auto scrollbar-thin p-5">
-              <Panel />
+            <div className="flex-1 overflow-y-auto scrollbar-thin p-4 sm:p-5">
+              <Panel {...panelProps} />
             </div>
             <div className="p-4 border-t border-border/40">
-              <button onClick={() => { setSidebarOpen(false); generate(); }} disabled={loading}
-                className="w-full gradient-aurora text-primary-foreground font-semibold py-3.5 rounded-2xl flex items-center justify-center gap-2 glow-primary disabled:opacity-60">
-                {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Processando...</> : <><Rocket className="w-5 h-5" /> Gerar</>}
+              <button
+                onClick={() => {
+                  setSidebarOpen(false);
+                  generate();
+                }}
+                disabled={loading}
+                className="w-full gradient-aurora text-primary-foreground font-semibold py-3.5 rounded-2xl flex items-center justify-center gap-2 glow-primary disabled:opacity-60"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" /> Processando...
+                  </>
+                ) : (
+                  <>
+                    <Rocket className="w-5 h-5" /> Gerar
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -426,10 +656,9 @@ const Index = () => {
       )}
 
       {/* CANVAS */}
-      <main className="flex-1 md:ml-[416px] pt-14 md:pt-0 min-h-screen flex">
-        <section className="flex-1 relative bg-dot-grid flex items-center justify-center overflow-hidden p-4 md:p-8">
+      <main className="flex-1 md:ml-[368px] lg:ml-[416px] pt-14 md:pt-0 min-h-screen flex">
+        <section className="flex-1 relative bg-dot-grid flex items-center justify-center overflow-hidden p-3 sm:p-4 md:p-8">
           <div className="relative w-full h-[calc(100vh-4.5rem)] md:h-[calc(100vh-4rem)] rounded-3xl glass overflow-hidden flex items-center justify-center">
-            {/* aurora glow behind canvas */}
             <div className="pointer-events-none absolute -top-24 -left-24 w-72 h-72 rounded-full bg-primary/20 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-accent/15 blur-3xl" />
 
@@ -439,7 +668,9 @@ const Index = () => {
                   <ImageIcon className="w-9 h-9 opacity-60" />
                 </div>
                 <div className="font-display text-lg">Sua obra aparecerá aqui</div>
-                <div className="text-xs mt-1 opacity-70">Descreva algo no painel e toque em Gerar</div>
+                <div className="text-xs mt-1 opacity-70">
+                  Descreva algo no painel e toque em Gerar
+                </div>
               </div>
             )}
             {loading && (
@@ -447,19 +678,31 @@ const Index = () => {
                 <div className="w-16 h-16 rounded-2xl gradient-aurora flex items-center justify-center glow-primary">
                   <Loader2 className="w-7 h-7 text-primary-foreground animate-spin" />
                 </div>
-                <div className="font-display uppercase tracking-[0.3em] text-sm animate-pulse">Processando</div>
+                <div className="font-display uppercase tracking-[0.3em] text-sm animate-pulse">
+                  Processando
+                </div>
               </div>
             )}
             {imgUrl && !loading && (
               <>
-                <img src={imgUrl} alt="Imagem gerada" className="relative z-10 max-w-full max-h-full object-contain rounded-2xl" />
-                <div className="absolute bottom-5 right-5 flex gap-2 z-20">
-                  <button onClick={editCurrent} title="Editar"
-                    className="w-11 h-11 rounded-2xl glass-strong flex items-center justify-center hover:bg-primary hover:border-primary hover:text-primary-foreground transition">
+                <img
+                  src={imgUrl}
+                  alt="Imagem gerada"
+                  className="relative z-10 max-w-full max-h-full object-contain rounded-2xl"
+                />
+                <div className="absolute bottom-4 right-4 sm:bottom-5 sm:right-5 flex gap-2 z-20">
+                  <button
+                    onClick={editCurrent}
+                    title="Editar"
+                    className="w-11 h-11 rounded-2xl glass-strong flex items-center justify-center hover:bg-primary hover:border-primary hover:text-primary-foreground transition"
+                  >
                     <Pencil className="w-5 h-5" />
                   </button>
-                  <button onClick={download} title="Baixar"
-                    className="w-11 h-11 rounded-2xl glass-strong flex items-center justify-center hover:bg-primary hover:border-primary hover:text-primary-foreground transition">
+                  <button
+                    onClick={download}
+                    title="Baixar"
+                    className="w-11 h-11 rounded-2xl glass-strong flex items-center justify-center hover:bg-primary hover:border-primary hover:text-primary-foreground transition"
+                  >
                     <Download className="w-5 h-5" />
                   </button>
                 </div>
