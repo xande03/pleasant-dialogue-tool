@@ -355,9 +355,8 @@ const Index = () => {
       <aside className="hidden md:flex fixed left-[76px] top-0 bottom-0 w-[340px] z-20 flex-col glass-strong border-r border-border/40">
         <header className="px-6 pt-6 pb-4 border-b border-border/40">
           <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">AI Image Studio</div>
-          <h2 className="font-display text-2xl font-bold text-aurora mt-1">
-            {NAV.find(n => n.key === activePanel)?.label}
-          </h2>
+          <h2 className="font-display text-2xl font-bold text-aurora mt-1">Painel</h2>
+          <p className="text-xs text-muted-foreground mt-1">Tudo em um só lugar</p>
         </header>
         <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5">
           <Panel />
