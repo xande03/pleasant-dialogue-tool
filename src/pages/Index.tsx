@@ -456,6 +456,10 @@ const Index = () => {
   const showTwoImages = mode === "edit" && currentFn === "compose";
 
   useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
+
+  useEffect(() => {
     try {
       localStorage.setItem("ai-studio:model", model);
     } catch {}
