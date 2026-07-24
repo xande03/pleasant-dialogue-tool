@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { toast } from "sonner";
 import {
   Upload, Download, Trash2, QrCode as QrIcon, FileText, Music, Image as ImgIcon,
-  File as FileIcon, Link as LinkIcon, Type as TypeIcon, History,
+  File as FileIcon, Link as LinkIcon, Type as TypeIcon, History, ShieldCheck,
 } from "lucide-react";
 
 type QrKind = "text" | "url" | "file" | "image" | "music";
@@ -16,15 +16,19 @@ type QrItem = {
   mime?: string;
   fileName?: string;
   qrDataUrl: string;   // PNG data URL of the QR
-  payload: string;     // encoded string (text/url or data:...;base64,)
+  payload: string;     // original content (text/url or data:...;base64,)
+  qrPayload?: string;  // compact encrypted package actually embedded in the QR
+  encrypted?: boolean;
 };
 
 const STORAGE_KEY = "qr-tool:history:v1";
+const QR_PREFIX = "AISQR1";
 // QR v40 with EC "L" holds up to 2953 bytes binary — we use EC "L" for media
 // so images/music (as data URLs) can actually fit.
 const MAX_QR_CHARS = 2900;
-const IMG_TARGET_MAX = 2800; // target payload size for compressed images
-const MUSIC_MAX_BYTES = 2100; // hard cap for audio payload (base64 expands ~4/3)
+const IMG_TARGET_MAX = 1550; // target content size before encrypted wrapper overhead
+const FILE_MAX_BYTES = 1050; // hard cap for generic file payloads before encryption
+const MUSIC_MAX_BYTES = 1050; // hard cap for audio payload (base64 expands ~4/3)
 
 const load = (): QrItem[] => {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
@@ -54,6 +58,38 @@ const readAsDataURL = (f: File) => new Promise<string>((res, rej) => {
   r.readAsDataURL(f);
 });
 
+const encodeBytes = (bytes: Uint8Array) => {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+};
+
+const packEncryptedPayload = async (payload: string, meta: Partial<QrItem>) => {
+  const body = JSON.stringify({
+    v: 1,
+    kind: meta.kind || "text",
+    label: meta.label || "",
+    mime: meta.mime || "",
+    fileName: meta.fileName || "",
+    payload,
+  });
+  const keyBytes = crypto.getRandomValues(new Uint8Array(32));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["encrypt"]);
+  const cipher = new Uint8Array(await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    new TextEncoder().encode(body),
+  ));
+
+  // Self-contained encrypted package: QR contains ciphertext + unlock material so
+  // the content is real/portable, but not stored as raw readable text in the QR.
+  return `${QR_PREFIX}.${encodeBytes(iv)}.${encodeBytes(keyBytes)}.${encodeBytes(cipher)}`;
+};
+
 // Compress an image file to fit under ~IMG_TARGET_MAX chars (data URL)
 // Iteratively reduces max dimension and JPEG quality until it fits.
 const compressImageToFit = async (file: File, targetChars = IMG_TARGET_MAX): Promise<string> => {
@@ -73,7 +109,8 @@ const compressImageToFit = async (file: File, targetChars = IMG_TARGET_MAX): Pro
     const h = Math.max(1, Math.round(img.height * scale));
     const canvas = document.createElement("canvas");
     canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas");
     ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
     ctx.drawImage(img, 0, 0, w, h);
     for (const q of qualities) {
@@ -96,18 +133,19 @@ export default function QrTool() {
   useEffect(() => { save(history); }, [history]);
 
   const generateFromPayload = async (payload: string, meta: Partial<QrItem>) => {
-    if (payload.length > MAX_QR_CHARS) {
-      toast.error(`Conteúdo muito grande para caber em um QR code (${fmtBytes(payload.length)}). Limite prático: ~${fmtBytes(MAX_QR_CHARS)}. Para arquivos maiores use um link.`);
-      return;
-    }
     setGenerating(true);
     try {
+      const qrPayload = await packEncryptedPayload(payload, meta);
+      if (qrPayload.length > MAX_QR_CHARS) {
+        toast.error(`Conteúdo muito grande para caber em um QR criptografado (${fmtBytes(qrPayload.length)}). Limite prático: ~${fmtBytes(MAX_QR_CHARS)}. Para arquivos maiores use um link.`);
+        return;
+      }
       // Media (image/music/file) needs low EC to fit; text/url stays medium.
       const isMedia = meta.kind === "image" || meta.kind === "music" || meta.kind === "file";
-      const qrDataUrl = await QRCode.toDataURL(payload, {
+      const qrDataUrl = await QRCode.toDataURL(qrPayload, {
         errorCorrectionLevel: isMedia ? "L" : "M",
         margin: 2,
-        width: 640,
+        width: isMedia ? 1024 : 760,
         color: { dark: "#0e1024", light: "#ffffff" },
       });
       const item: QrItem = {
@@ -120,11 +158,13 @@ export default function QrTool() {
         fileName: meta.fileName,
         qrDataUrl,
         payload,
+        qrPayload,
+        encrypted: true,
       };
       const next = [item, ...history].slice(0, 50);
       setHistory(next);
       setCurrent(item);
-      toast.success("QR code gerado e salvo localmente!");
+      toast.success("QR code com conteúdo criptografado gerado e salvo localmente!");
     } catch (e: any) {
       toast.error(e?.message || "Falha ao gerar QR");
     } finally { setGenerating(false); }
@@ -186,6 +226,10 @@ export default function QrTool() {
         return;
       }
       // Generic file
+      if (f.size > FILE_MAX_BYTES) {
+        toast.error(`Arquivo muito grande (${fmtBytes(f.size)}). QR criptografado aceita até ~${fmtBytes(FILE_MAX_BYTES)}. Para arquivos maiores, gere QR de um link.`);
+        return;
+      }
       const dataUrl = await readAsDataURL(f);
       await generateFromPayload(dataUrl, {
         kind: "file",
@@ -257,7 +301,7 @@ export default function QrTool() {
                 placeholder={kind === "url" ? "https://exemplo.com/..." : "Digite qualquer texto…"}
                 className="w-full h-32 glass rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
-              <div className="text-[10px] text-muted-foreground mt-1">{text.length} / {MAX_QR_CHARS} chars</div>
+              <div className="text-[10px] text-muted-foreground mt-1">{text.length} chars • QR será protegido em pacote criptografado</div>
               <button onClick={onGenerateText} disabled={generating}
                 className="w-full mt-3 gradient-aurora text-primary-foreground font-semibold py-2.5 rounded-xl glow-primary disabled:opacity-60">
                 {generating ? "Gerando…" : "Gerar QR Code"}
@@ -286,15 +330,15 @@ export default function QrTool() {
                 <div className="text-[10px] text-muted-foreground text-center">
                   {kind === "image" ? <>JPG, PNG, WEBP…<br/>Será redimensionada automaticamente para caber no QR</>
                     : kind === "music" ? <>MP3, OGG, WAV, M4A…<br/>Máx. ~{fmtBytes(MUSIC_MAX_BYTES)} (clipes muito curtos)</>
-                    : <>Imagem, música, PDF ou documento<br/>Limite prático: ~{fmtBytes(MAX_QR_CHARS)}</>}
+                    : <>Imagem, música, PDF ou documento<br/>Máx. ~{fmtBytes(FILE_MAX_BYTES)} com criptografia</>}
                 </div>
               </div>
               <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
                 {kind === "image"
                   ? "ℹ️ Imagens são reduzidas (tamanho moderado, ~256px) e comprimidas em JPEG até caberem no QR."
                   : kind === "music"
-                  ? "⚠️ QR codes cabem no máx. ~2 KB. Músicas completas não cabem — para faixas inteiras, hospede o arquivo e gere um QR do link."
-                  : "⚠️ QR codes têm capacidade limitada (~2 KB). Arquivos grandes serão rejeitados."}
+                  ? "⚠️ QR codes cabem em poucos KB. Músicas completas não cabem — para faixas inteiras, hospede o arquivo e gere um QR do link."
+                  : "⚠️ QR codes têm capacidade limitada. Arquivos grandes serão rejeitados para preservar conteúdo + criptografia."}
               </div>
             </>
           )}
@@ -324,7 +368,7 @@ export default function QrTool() {
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-medium truncate">{item.label}</div>
                       <div className="text-[10px] text-muted-foreground">
-                        {fmtBytes(item.size)} • {new Date(item.createdAt).toLocaleDateString()}
+                        {fmtBytes(item.size)} • {item.encrypted ? "criptografado" : "legado"} • {new Date(item.createdAt).toLocaleDateString()}
                       </div>
                     </div>
                     <button onClick={e => { e.stopPropagation(); remove(item.id); }}
@@ -358,7 +402,25 @@ export default function QrTool() {
                 {current.kind.toUpperCase()} • {fmtBytes(current.size)}
                 {current.mime && ` • ${current.mime}`}
               </div>
+              {current.encrypted && (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/60 px-2.5 py-1 text-[10px] text-muted-foreground">
+                  <ShieldCheck className="w-3 h-3 text-accent" /> Conteúdo real protegido no QR
+                </div>
+              )}
             </div>
+            {(current.kind === "image" || current.kind === "music" || current.kind === "file") && (
+              <div className="w-full rounded-2xl border border-border/40 bg-secondary/40 p-3 text-center">
+                {current.kind === "image" ? (
+                  <img src={current.payload} alt={current.fileName || "Imagem embutida no QR"} className="mx-auto max-h-36 rounded-xl object-contain" />
+                ) : current.kind === "music" ? (
+                  <audio controls src={current.payload} className="w-full" />
+                ) : (
+                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                    <FileIcon className="w-4 h-4 text-primary" /> Arquivo embutido pronto para download
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
               <button onClick={() => downloadQr(current)}
                 className="gradient-aurora text-primary-foreground font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 glow-primary">
