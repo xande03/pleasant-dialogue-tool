@@ -112,8 +112,9 @@ export default function PdfTool() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4 lg:p-6 min-h-full">
-      <div className="lg:w-[420px] shrink-0 flex flex-col gap-3">
+    <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4 lg:p-6 min-h-full w-full max-w-full overflow-x-hidden">
+      <div className="w-full lg:w-[420px] shrink-0 flex flex-col gap-3 min-w-0">
+
         <section className="glass rounded-2xl p-4 border border-border/40">
           <div className="flex items-center gap-2.5 mb-3">
             <div className="w-8 h-8 rounded-lg gradient-aurora flex items-center justify-center glow-primary">
@@ -151,7 +152,7 @@ export default function PdfTool() {
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                   <FileType className="w-6 h-6 text-primary" />
                 </div>
-                <div className="text-xs font-semibold truncate max-w-[280px]">{file.name}</div>
+                <div className="text-xs font-semibold truncate w-full">{file.name}</div>
                 <div className="text-[10px] text-muted-foreground">{(file.size / 1024).toFixed(1)} KB • trocar arquivo</div>
               </>
             ) : (
@@ -191,7 +192,7 @@ export default function PdfTool() {
             <div className="font-display text-xl font-bold">Conversão pronta!</div>
             <div className="glass rounded-xl px-4 py-3">
               <div className="text-xs text-muted-foreground">Arquivo gerado</div>
-              <div className="font-semibold truncate max-w-[300px]">{result.name}</div>
+              <div className="font-semibold truncate w-full">{result.name}</div>
               <div className="text-[10px] text-muted-foreground mt-1">{(result.blob.size / 1024).toFixed(1)} KB</div>
             </div>
             <button onClick={download}

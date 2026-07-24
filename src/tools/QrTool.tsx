@@ -20,9 +20,11 @@ type QrItem = {
 };
 
 const STORAGE_KEY = "qr-tool:history:v1";
-const MAX_QR_CHARS = 2200; // safe practical limit for QR v40 with low EC
-const IMG_TARGET_MAX = 2000; // target payload size for compressed images
-const MUSIC_MAX_BYTES = 2000; // hard cap for audio payload
+// QR v40 with EC "L" holds up to 2953 bytes binary — we use EC "L" for media
+// so images/music (as data URLs) can actually fit.
+const MAX_QR_CHARS = 2900;
+const IMG_TARGET_MAX = 2800; // target payload size for compressed images
+const MUSIC_MAX_BYTES = 2100; // hard cap for audio payload (base64 expands ~4/3)
 
 const load = (): QrItem[] => {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
@@ -62,8 +64,8 @@ const compressImageToFit = async (file: File, targetChars = IMG_TARGET_MAX): Pro
     i.onerror = () => rej(new Error("decode"));
     i.src = original;
   });
-  const sizes = [256, 192, 160, 128, 96, 80, 64, 48, 32];
-  const qualities = [0.72, 0.6, 0.5, 0.4, 0.3, 0.22, 0.15];
+  const sizes = [320, 256, 200, 160, 128, 96, 80, 64, 48];
+  const qualities = [0.78, 0.68, 0.58, 0.48, 0.38, 0.28, 0.2];
   let best = "";
   for (const maxDim of sizes) {
     const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
@@ -100,10 +102,12 @@ export default function QrTool() {
     }
     setGenerating(true);
     try {
+      // Media (image/music/file) needs low EC to fit; text/url stays medium.
+      const isMedia = meta.kind === "image" || meta.kind === "music" || meta.kind === "file";
       const qrDataUrl = await QRCode.toDataURL(payload, {
-        errorCorrectionLevel: "M",
+        errorCorrectionLevel: isMedia ? "L" : "M",
         margin: 2,
-        width: 512,
+        width: 640,
         color: { dark: "#0e1024", light: "#ffffff" },
       });
       const item: QrItem = {
@@ -216,9 +220,10 @@ export default function QrTool() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4 lg:p-6 min-h-full">
+    <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4 lg:p-6 min-h-full w-full max-w-full overflow-x-hidden">
       {/* Left: input */}
-      <div className="lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col gap-3">
+      <div className="w-full lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col gap-3 min-w-0">
+
         <section className="glass rounded-2xl p-4 border border-border/40">
           <div className="flex items-center gap-2.5 mb-3">
             <div className="w-8 h-8 rounded-lg gradient-aurora flex items-center justify-center glow-primary">
@@ -348,7 +353,7 @@ export default function QrTool() {
               <img src={current.qrDataUrl} alt="QR" className="w-64 h-64 sm:w-80 sm:h-80" />
             </div>
             <div className="text-center">
-              <div className="font-display font-semibold truncate max-w-[300px]">{current.label}</div>
+              <div className="font-display font-semibold truncate w-full max-w-[300px] mx-auto">{current.label}</div>
               <div className="text-[11px] text-muted-foreground mt-1">
                 {current.kind.toUpperCase()} • {fmtBytes(current.size)}
                 {current.mime && ` • ${current.mime}`}
