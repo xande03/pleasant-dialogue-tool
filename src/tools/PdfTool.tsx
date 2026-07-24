@@ -152,7 +152,7 @@ export default function PdfTool() {
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                   <FileType className="w-6 h-6 text-primary" />
                 </div>
-                <div className="text-xs font-semibold truncate max-w-[280px]">{file.name}</div>
+                <div className="text-xs font-semibold truncate w-full">{file.name}</div>
                 <div className="text-[10px] text-muted-foreground">{(file.size / 1024).toFixed(1)} KB • trocar arquivo</div>
               </>
             ) : (
@@ -192,7 +192,7 @@ export default function PdfTool() {
             <div className="font-display text-xl font-bold">Conversão pronta!</div>
             <div className="glass rounded-xl px-4 py-3">
               <div className="text-xs text-muted-foreground">Arquivo gerado</div>
-              <div className="font-semibold truncate max-w-[300px]">{result.name}</div>
+              <div className="font-semibold truncate w-full">{result.name}</div>
               <div className="text-[10px] text-muted-foreground mt-1">{(result.blob.size / 1024).toFixed(1)} KB</div>
             </div>
             <button onClick={download}
