@@ -124,21 +124,19 @@ export default function QrTool() {
 
   useEffect(() => { save(history); }, [history]);
 
-  const generateFromPayload = async (payload: string, meta: Partial<QrItem>) => {
+  const generateEncryptedQr = async (payload: string, meta: Partial<QrItem>) => {
     setGenerating(true);
     try {
       const qrPayload = await packEncryptedPayload(payload, meta);
       const qrScanUrl = buildQrViewerUrl(qrPayload);
       if (qrScanUrl.length > MAX_QR_CHARS) {
-        toast.error(`Conteúdo muito grande para caber em um QR com visualizador (${fmtBytes(qrScanUrl.length)}). Limite prático: ~${fmtBytes(MAX_QR_CHARS)}. Para arquivos maiores use um link.`);
+        toast.error(`Conteúdo muito grande (${fmtBytes(qrScanUrl.length)}). Limite ~${fmtBytes(MAX_QR_CHARS)}.`);
         return;
       }
-      // Media (image/music/file) needs low EC to fit; text/url stays medium.
-      const isMedia = meta.kind === "image" || meta.kind === "music" || meta.kind === "file";
       const qrDataUrl = await QRCode.toDataURL(qrScanUrl, {
-        errorCorrectionLevel: isMedia ? "L" : "M",
+        errorCorrectionLevel: "M",
         margin: 2,
-        width: isMedia ? 1024 : 760,
+        width: 760,
         color: { dark: "#0e1024", light: "#ffffff" },
       });
       const item: QrItem = {
@@ -147,20 +145,56 @@ export default function QrTool() {
         kind: meta.kind || "text",
         label: meta.label || payload.slice(0, 40),
         size: payload.length,
-        mime: meta.mime,
-        fileName: meta.fileName,
         qrDataUrl,
         payload,
         qrPayload,
         qrScanUrl,
         encrypted: true,
       };
-      const next = [item, ...history].slice(0, 50);
-      setHistory(next);
+      setHistory(h => [item, ...h].slice(0, 50));
       setCurrent(item);
-      toast.success("QR code com visualizador criptografado gerado e salvo localmente!");
+      toast.success("QR criptografado gerado!");
     } catch (e: any) {
       toast.error(e?.message || "Falha ao gerar QR");
+    } finally { setGenerating(false); }
+  };
+
+  const generateTmpfilesQr = async (file: File, itemKind: QrKind) => {
+    setGenerating(true);
+    try {
+      if (file.size > TMPFILES_MAX_BYTES) {
+        toast.error(`Arquivo muito grande (${fmtBytes(file.size)}). Máx. ${fmtBytes(TMPFILES_MAX_BYTES)} no tmpfiles.org.`);
+        return;
+      }
+      toast.info("Enviando arquivo para tmpfiles.org…");
+      const tmpUrl = await uploadToTmpfiles(file);
+      const qrDataUrl = await QRCode.toDataURL(tmpUrl, {
+        errorCorrectionLevel: "M",
+        margin: 2,
+        width: 760,
+        color: { dark: "#0e1024", light: "#ffffff" },
+      });
+      const previewUrl = URL.createObjectURL(file);
+      const item: QrItem = {
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+        kind: itemKind,
+        label: file.name,
+        size: file.size,
+        mime: file.type,
+        fileName: file.name,
+        qrDataUrl,
+        payload: tmpUrl,
+        qrScanUrl: tmpUrl,
+        tmpUrl,
+        previewUrl,
+        encrypted: false,
+      };
+      setHistory(h => [item, ...h].slice(0, 50));
+      setCurrent(item);
+      toast.success("Arquivo hospedado e QR gerado! Válido por ~60 min no tmpfiles.org.");
+    } catch (e: any) {
+      toast.error(e?.message || "Falha no upload para tmpfiles.org");
     } finally { setGenerating(false); }
   };
 
@@ -168,7 +202,7 @@ export default function QrTool() {
     if (!text.trim()) { toast.error("Digite algum texto ou URL."); return; }
     const payload = text.trim();
     const isUrl = /^https?:\/\//i.test(payload);
-    generateFromPayload(payload, {
+    generateEncryptedQr(payload, {
       kind: isUrl ? "url" : "text",
       label: payload.slice(0, 60),
     });
@@ -178,64 +212,11 @@ export default function QrTool() {
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
-    try {
-      // Image kind: auto-compress to fit ~2KB (moderate visual size)
-      if (kind === "image") {
-        if (!f.type.startsWith("image/")) {
-          toast.error("Selecione um arquivo de imagem.");
-          return;
-        }
-        setGenerating(true);
-        const compressed = await compressImageToFit(f, IMG_TARGET_MAX);
-        setGenerating(false);
-        if (compressed.length > MAX_QR_CHARS) {
-          toast.error(`Não foi possível reduzir a imagem o suficiente (${fmtBytes(compressed.length)}). Tente uma imagem mais simples.`);
-          return;
-        }
-        await generateFromPayload(compressed, {
-          kind: "image",
-          label: f.name,
-          mime: "image/jpeg",
-          fileName: f.name.replace(/\.[^.]+$/, "") + ".jpg",
-        });
-        return;
-      }
-      // Music kind: hard limit — real songs won't fit; accept only short clips
-      if (kind === "music") {
-        if (!f.type.startsWith("audio/")) {
-          toast.error("Selecione um arquivo de áudio.");
-          return;
-        }
-        if (f.size > MUSIC_MAX_BYTES) {
-          toast.error(`Áudio muito grande (${fmtBytes(f.size)}). QR codes cabem no máx. ~${fmtBytes(MUSIC_MAX_BYTES)}. Use um clipe muito curto ou hospede o áudio e gere um QR do link.`);
-          return;
-        }
-        const dataUrl = await readAsDataURL(f);
-        await generateFromPayload(dataUrl, {
-          kind: "music",
-          label: f.name,
-          mime: f.type,
-          fileName: f.name,
-        });
-        return;
-      }
-      // Generic file
-      if (f.size > FILE_MAX_BYTES) {
-        toast.error(`Arquivo muito grande (${fmtBytes(f.size)}). QR criptografado aceita até ~${fmtBytes(FILE_MAX_BYTES)}. Para arquivos maiores, gere QR de um link.`);
-        return;
-      }
-      const dataUrl = await readAsDataURL(f);
-      await generateFromPayload(dataUrl, {
-        kind: "file",
-        label: f.name,
-        mime: f.type,
-        fileName: f.name,
-      });
-    } catch {
-      setGenerating(false);
-      toast.error("Falha ao ler arquivo.");
-    }
+    if (kind === "image" && !f.type.startsWith("image/")) { toast.error("Selecione uma imagem."); return; }
+    if (kind === "music" && !f.type.startsWith("audio/")) { toast.error("Selecione um áudio."); return; }
+    await generateTmpfilesQr(f, kind);
   };
+
 
   const remove = (id: string) => {
     setHistory(h => h.filter(i => i.id !== id));
