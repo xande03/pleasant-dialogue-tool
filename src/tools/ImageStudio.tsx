@@ -258,14 +258,20 @@ export default function ImageStudio() {
         </Card>
 
         <Card icon={Palette} title="Estilo" subtitle={STYLES.find(s => s.v === style)?.l || "Padrão"}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-            {STYLES.map(s => (
+          <div className="grid grid-cols-3 gap-1.5">
+            {(styleExpanded ? STYLES : STYLES.slice(0, 3)).map(s => (
               <button key={s.v} onClick={() => setStyle(s.v)}
                 className={`px-2 py-2 rounded-lg border text-center text-[11px] font-medium transition ${style === s.v ? "bg-primary/15 border-primary/60 text-primary" : "glass hover:border-primary/30 text-muted-foreground hover:text-foreground"}`}>
                 {s.l}
               </button>
             ))}
           </div>
+          <button
+            onClick={() => setStyleExpanded(v => !v)}
+            className="mt-2 w-full glass rounded-lg py-1.5 text-[11px] font-semibold flex items-center justify-center gap-1 hover:border-primary/40 transition"
+          >
+            {styleExpanded ? <><ChevronUp className="w-3.5 h-3.5" /> Ocultar estilos</> : <><ChevronDown className="w-3.5 h-3.5" /> Mostrar todos ({STYLES.length})</>}
+          </button>
         </Card>
 
         <button onClick={generate} disabled={loading}
