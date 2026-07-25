@@ -18,6 +18,7 @@ type QrItem = {
   qrDataUrl: string;   // PNG data URL of the QR
   payload: string;     // original content (text/url or data:...;base64,)
   qrPayload?: string;  // compact encrypted package actually embedded in the QR
+  qrScanUrl?: string;  // viewer URL embedded in the QR for scanners
   encrypted?: boolean;
 };
 
@@ -25,7 +26,7 @@ const STORAGE_KEY = "qr-tool:history:v1";
 const QR_PREFIX = "AISQR1";
 // QR v40 with EC "L" holds up to 2953 bytes binary — we use EC "L" for media
 // so images/music (as data URLs) can actually fit.
-const MAX_QR_CHARS = 2900;
+const MAX_QR_CHARS = 2750;
 const IMG_TARGET_MAX = 1550; // target content size before encrypted wrapper overhead
 const FILE_MAX_BYTES = 1050; // hard cap for generic file payloads before encryption
 const MUSIC_MAX_BYTES = 1050; // hard cap for audio payload (base64 expands ~4/3)
@@ -90,6 +91,12 @@ const packEncryptedPayload = async (payload: string, meta: Partial<QrItem>) => {
   return `${QR_PREFIX}.${encodeBytes(iv)}.${encodeBytes(keyBytes)}.${encodeBytes(cipher)}`;
 };
 
+const buildQrViewerUrl = (qrPayload: string) => {
+  const origin = window.location.origin;
+  const basePath = `${origin}/qr-viewer`;
+  return `${basePath}#p=${qrPayload}`;
+};
+
 // Compress an image file to fit under ~IMG_TARGET_MAX chars (data URL)
 // Iteratively reduces max dimension and JPEG quality until it fits.
 const compressImageToFit = async (file: File, targetChars = IMG_TARGET_MAX): Promise<string> => {
@@ -136,13 +143,14 @@ export default function QrTool() {
     setGenerating(true);
     try {
       const qrPayload = await packEncryptedPayload(payload, meta);
-      if (qrPayload.length > MAX_QR_CHARS) {
-        toast.error(`Conteúdo muito grande para caber em um QR criptografado (${fmtBytes(qrPayload.length)}). Limite prático: ~${fmtBytes(MAX_QR_CHARS)}. Para arquivos maiores use um link.`);
+      const qrScanUrl = buildQrViewerUrl(qrPayload);
+      if (qrScanUrl.length > MAX_QR_CHARS) {
+        toast.error(`Conteúdo muito grande para caber em um QR com visualizador (${fmtBytes(qrScanUrl.length)}). Limite prático: ~${fmtBytes(MAX_QR_CHARS)}. Para arquivos maiores use um link.`);
         return;
       }
       // Media (image/music/file) needs low EC to fit; text/url stays medium.
       const isMedia = meta.kind === "image" || meta.kind === "music" || meta.kind === "file";
-      const qrDataUrl = await QRCode.toDataURL(qrPayload, {
+      const qrDataUrl = await QRCode.toDataURL(qrScanUrl, {
         errorCorrectionLevel: isMedia ? "L" : "M",
         margin: 2,
         width: isMedia ? 1024 : 760,
@@ -159,12 +167,13 @@ export default function QrTool() {
         qrDataUrl,
         payload,
         qrPayload,
+        qrScanUrl,
         encrypted: true,
       };
       const next = [item, ...history].slice(0, 50);
       setHistory(next);
       setCurrent(item);
-      toast.success("QR code com conteúdo criptografado gerado e salvo localmente!");
+      toast.success("QR code com visualizador criptografado gerado e salvo localmente!");
     } catch (e: any) {
       toast.error(e?.message || "Falha ao gerar QR");
     } finally { setGenerating(false); }
@@ -301,7 +310,7 @@ export default function QrTool() {
                 placeholder={kind === "url" ? "https://exemplo.com/..." : "Digite qualquer texto…"}
                 className="w-full h-32 glass rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
-              <div className="text-[10px] text-muted-foreground mt-1">{text.length} chars • QR será protegido em pacote criptografado</div>
+              <div className="text-[10px] text-muted-foreground mt-1">{text.length} chars • QR abrirá o visualizador criptografado do app</div>
               <button onClick={onGenerateText} disabled={generating}
                 className="w-full mt-3 gradient-aurora text-primary-foreground font-semibold py-2.5 rounded-xl glow-primary disabled:opacity-60">
                 {generating ? "Gerando…" : "Gerar QR Code"}
@@ -404,7 +413,7 @@ export default function QrTool() {
               </div>
               {current.encrypted && (
                 <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/60 px-2.5 py-1 text-[10px] text-muted-foreground">
-                  <ShieldCheck className="w-3 h-3 text-accent" /> Conteúdo real protegido no QR
+                  <ShieldCheck className="w-3 h-3 text-accent" /> Ao escanear, abre o conteúdo no visualizador seguro
                 </div>
               )}
             </div>
