@@ -374,37 +374,48 @@ export default function QrTool() {
                 {current.kind.toUpperCase()} • {fmtBytes(current.size)}
                 {current.mime && ` • ${current.mime}`}
               </div>
-              {current.encrypted && (
+              {current.encrypted ? (
                 <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/60 px-2.5 py-1 text-[10px] text-muted-foreground">
                   <ShieldCheck className="w-3 h-3 text-accent" /> Ao escanear, abre o conteúdo no visualizador seguro
+                </div>
+              ) : current.tmpUrl && (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/60 px-2.5 py-1 text-[10px] text-muted-foreground max-w-full">
+                  <LinkIcon className="w-3 h-3 text-accent shrink-0" />
+                  <span className="truncate">Hospedado em tmpfiles.org (~60 min)</span>
                 </div>
               )}
             </div>
             {(current.kind === "image" || current.kind === "music" || current.kind === "file") && (
               <div className="w-full rounded-2xl border border-border/40 bg-secondary/40 p-3 text-center">
                 {current.kind === "image" ? (
-                  <img src={current.payload} alt={current.fileName || "Imagem embutida no QR"} className="mx-auto max-h-36 rounded-xl object-contain" />
+                  <img src={current.previewUrl || current.payload} alt={current.fileName || "Imagem"} className="mx-auto max-h-36 rounded-xl object-contain" />
                 ) : current.kind === "music" ? (
-                  <audio controls src={current.payload} className="w-full" />
+                  <audio controls src={current.previewUrl || current.payload} className="w-full" />
                 ) : (
                   <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                    <FileIcon className="w-4 h-4 text-primary" /> Arquivo embutido pronto para download
+                    <FileIcon className="w-4 h-4 text-primary" /> {current.fileName || "Arquivo hospedado"}
                   </div>
+                )}
+                {current.tmpUrl && (
+                  <a href={current.tmpUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-[11px] text-primary underline break-all">
+                    {current.tmpUrl}
+                  </a>
                 )}
               </div>
             )}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap justify-center">
               <button onClick={() => downloadQr(current)}
                 className="gradient-aurora text-primary-foreground font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 glow-primary">
                 <Download className="w-4 h-4" /> Baixar QR (PNG)
               </button>
-              {(current.kind === "file" || current.kind === "image" || current.kind === "music") && (
-                <button onClick={() => downloadPayload(current)}
+              {current.tmpUrl && (
+                <a href={current.tmpUrl} target="_blank" rel="noreferrer"
                   className="glass-strong font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 hover:border-primary">
-                  <Download className="w-4 h-4" /> Baixar arquivo
-                </button>
+                  <LinkIcon className="w-4 h-4" /> Abrir no tmpfiles
+                </a>
               )}
             </div>
+
           </div>
         )}
       </section>
