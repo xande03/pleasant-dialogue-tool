@@ -249,7 +249,7 @@ export default function QrTool() {
             </div>
           </div>
 
-          <div className="grid grid-cols-5 gap-1 glass rounded-xl p-1 mb-3">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-1 glass rounded-xl p-1 mb-3">
             {([
               { k: "text" as QrKind, Icon: TypeIcon, l: "Texto" },
               { k: "url" as QrKind, Icon: LinkIcon, l: "Link" },
@@ -258,8 +258,8 @@ export default function QrTool() {
               { k: "file" as QrKind, Icon: FileIcon, l: "Arquivo" },
             ]).map(t => (
               <button key={t.k} onClick={() => setKind(t.k)}
-                className={`py-1.5 rounded-lg text-[10px] font-semibold transition flex flex-col items-center justify-center gap-0.5 ${kind === t.k ? "gradient-aurora text-primary-foreground" : "text-muted-foreground"}`}>
-                <t.Icon className="w-3.5 h-3.5" /> {t.l}
+                className={`py-2 rounded-lg text-[11px] font-semibold transition flex flex-col items-center justify-center gap-1 ${kind === t.k ? "gradient-aurora text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                <t.Icon className="w-4 h-4" /> {t.l}
               </button>
             ))}
           </div>
