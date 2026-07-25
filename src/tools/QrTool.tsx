@@ -234,9 +234,9 @@ export default function QrTool() {
 
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 p-3 sm:p-4 lg:p-6 xl:p-8 min-h-full w-full max-w-full overflow-x-hidden">
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 p-3 sm:p-5 lg:p-6 xl:p-8 min-h-screen w-full max-w-full overflow-x-hidden">
       {/* Left: input */}
-      <div className="w-full lg:w-[380px] xl:w-[420px] 2xl:w-[460px] shrink-0 flex flex-col gap-3 min-w-0">
+      <div className="w-full lg:w-[360px] xl:w-[400px] 2xl:w-[440px] shrink-0 flex flex-col gap-3 min-w-0">
 
         <section className="glass rounded-2xl p-4 border border-border/40">
           <div className="flex items-center gap-2.5 mb-3">
@@ -249,7 +249,7 @@ export default function QrTool() {
             </div>
           </div>
 
-          <div className="grid grid-cols-5 gap-1 glass rounded-xl p-1 mb-3">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-1 glass rounded-xl p-1 mb-3">
             {([
               { k: "text" as QrKind, Icon: TypeIcon, l: "Texto" },
               { k: "url" as QrKind, Icon: LinkIcon, l: "Link" },
@@ -258,8 +258,8 @@ export default function QrTool() {
               { k: "file" as QrKind, Icon: FileIcon, l: "Arquivo" },
             ]).map(t => (
               <button key={t.k} onClick={() => setKind(t.k)}
-                className={`py-1.5 rounded-lg text-[10px] font-semibold transition flex flex-col items-center justify-center gap-0.5 ${kind === t.k ? "gradient-aurora text-primary-foreground" : "text-muted-foreground"}`}>
-                <t.Icon className="w-3.5 h-3.5" /> {t.l}
+                className={`py-2 rounded-lg text-[11px] font-semibold transition flex flex-col items-center justify-center gap-1 ${kind === t.k ? "gradient-aurora text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                <t.Icon className="w-4 h-4" /> {t.l}
               </button>
             ))}
           </div>
