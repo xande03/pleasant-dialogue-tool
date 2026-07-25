@@ -136,28 +136,40 @@ export default function ImageStudio() {
     if (loading) return;
     if (!prompt.trim()) { toast.error("Digite um prompt."); return; }
     setLoading(true); setImgUrl(null);
-    let finalPrompt = prompt.trim();
-    if (style) finalPrompt += `, ${style} style`;
-    if (mode === "create") {
-      if (createFn === "sticker") finalPrompt += ", die-cut sticker design, white background, vector art, bold outlines, isolated";
-      if (createFn === "text") finalPrompt += ", minimalist logo design, vector graphics, flat design, centered, clean background";
-      if (createFn === "comic") finalPrompt += ", comic book style, bold black outlines, halftone dots, vibrant colors, dynamic action";
-      if (createFn === "lego") finalPrompt += ", built entirely from LEGO bricks, official LEGO minifigure aesthetic, plastic studs visible, sharp macro photography, soft studio lighting, playful diorama";
-      if (createFn === "poster") finalPrompt += ", cinematic movie poster, dramatic key art composition, bold typography space at bottom, moody lighting, high contrast, teal and orange grading, IMAX 35mm film aesthetic";
-      if (createFn === "anime") finalPrompt += ", high quality anime illustration, cel shaded, expressive eyes, Studio Ghibli meets Makoto Shinkai lighting, vibrant color palette, detailed background, 2D key visual";
-    }
+    // 1) Base = user's prompt (preserved literally)
+    const userPrompt = prompt.trim();
+    let finalPrompt = userPrompt;
+
+    // 2) Expand known cultural/cinematic refs on the user's text
     const { expanded, matches } = expandKnownTerms(finalPrompt);
     finalPrompt = expanded;
     if (matches.length) toast.message(`Refs: ${matches.slice(0, 3).join(", ")}${matches.length > 3 ? "…" : ""}`);
+
+    // 3) Optional AI refinement — but always keep user's subject as the anchor
     try {
       if (GEMINI_KEY) {
         toast.message("Refinando prompt…");
         const enhanced = await enhancePrompt(finalPrompt);
-        if (enhanced) finalPrompt = enhanced;
+        if (enhanced && enhanced.toLowerCase().includes(userPrompt.split(/\s+/)[0].toLowerCase())) {
+          finalPrompt = enhanced;
+        }
       }
+
+      // 4) Append style + mode signature AFTER enhancement so they're never stripped
+      if (style) finalPrompt += `, ${style} style`;
+      if (mode === "create") {
+        if (createFn === "sticker") finalPrompt += ", die-cut sticker design, white background, vector art, bold outlines, isolated";
+        if (createFn === "text") finalPrompt += ", minimalist logo design, vector graphics, flat design, centered, clean background";
+        if (createFn === "comic") finalPrompt += ", comic book style, bold black outlines, halftone dots, vibrant colors, dynamic action";
+        if (createFn === "lego") finalPrompt += ", built entirely from LEGO bricks, official LEGO minifigure aesthetic, plastic studs visible, sharp macro photography, soft studio lighting, playful diorama";
+        if (createFn === "poster") finalPrompt += ", cinematic movie poster, dramatic key art composition, bold typography space at bottom, moody lighting, high contrast, teal and orange grading, IMAX 35mm film aesthetic";
+        if (createFn === "anime") finalPrompt += ", high quality anime illustration, cel shaded, expressive eyes, Studio Ghibli meets Makoto Shinkai lighting, vibrant color palette, detailed background, 2D key visual";
+      }
+
       const seed = Math.floor(Math.random() * 1_000_000);
       finalPrompt += `, aspect ratio ${ratio.ratio}, ${ratio.w}x${ratio.h}, accurate real-world detail, high fidelity`;
       const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=${encodeURIComponent(model)}&nofeed=true&enhance=true`;
+
       await preloadImage(url);
       setImgUrl(url);
       toast.success("Imagem gerada!");
