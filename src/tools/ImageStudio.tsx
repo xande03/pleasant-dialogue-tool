@@ -167,8 +167,8 @@ export default function ImageStudio() {
       }
 
       const seed = Math.floor(Math.random() * 1_000_000);
-      finalPrompt += `, aspect ratio ${ratio.ratio}, ${ratio.w}x${ratio.h}, accurate real-world detail, high fidelity`;
-      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=${encodeURIComponent(model)}&nofeed=true&enhance=true`;
+      finalPrompt += `, ${ratio.w}x${ratio.h} ${ratio.ratio} aspect ratio composition, accurate real-world detail, high fidelity`;
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=${encodeURIComponent(model)}&nofeed=true&enhance=false`;
 
       await preloadImage(url);
       setImgUrl(url);
