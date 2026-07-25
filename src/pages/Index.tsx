@@ -120,7 +120,7 @@ const Index = () => {
       )}
 
       {/* Main content */}
-      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0 min-h-screen w-full max-w-full min-w-0 overflow-x-hidden">
+      <main className="flex-1 md:ml-[220px] xl:ml-[260px] pt-14 md:pt-0 min-h-screen w-full max-w-full min-w-0 overflow-x-hidden">
         <Tool />
       </main>
 
