@@ -297,24 +297,21 @@ export default function QrTool() {
                   : kind === "music" ? <Music className="w-6 h-6 text-primary" />
                   : <Upload className="w-6 h-6 text-muted-foreground" />}
                 <div className="text-xs font-medium">
-                  {generating ? "Processando…"
+                  {generating ? "Enviando ao tmpfiles.org…"
                     : kind === "image" ? "Selecione uma imagem"
-                    : kind === "music" ? "Selecione um áudio curto"
+                    : kind === "music" ? "Selecione um áudio"
                     : "Selecione um arquivo"}
                 </div>
                 <div className="text-[10px] text-muted-foreground text-center">
-                  {kind === "image" ? <>JPG, PNG, WEBP…<br/>Será redimensionada automaticamente para caber no QR</>
-                    : kind === "music" ? <>MP3, OGG, WAV, M4A…<br/>Máx. ~{fmtBytes(MUSIC_MAX_BYTES)} (clipes muito curtos)</>
-                    : <>Imagem, música, PDF ou documento<br/>Máx. ~{fmtBytes(FILE_MAX_BYTES)} com criptografia</>}
+                  {kind === "image" ? <>JPG, PNG, WEBP, GIF…<br/>Enviada para tmpfiles.org (máx. {fmtBytes(TMPFILES_MAX_BYTES)})</>
+                    : kind === "music" ? <>MP3, OGG, WAV, M4A…<br/>Enviada para tmpfiles.org (máx. {fmtBytes(TMPFILES_MAX_BYTES)})</>
+                    : <>Imagem, música, PDF ou documento<br/>Enviado para tmpfiles.org (máx. {fmtBytes(TMPFILES_MAX_BYTES)})</>}
                 </div>
               </div>
               <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
-                {kind === "image"
-                  ? "ℹ️ Imagens são reduzidas (tamanho moderado, ~256px) e comprimidas em JPEG até caberem no QR."
-                  : kind === "music"
-                  ? "⚠️ QR codes cabem em poucos KB. Músicas completas não cabem — para faixas inteiras, hospede o arquivo e gere um QR do link."
-                  : "⚠️ QR codes têm capacidade limitada. Arquivos grandes serão rejeitados para preservar conteúdo + criptografia."}
+                ℹ️ O arquivo é enviado para <a href="https://tmpfiles.org" target="_blank" rel="noreferrer" className="text-primary underline">tmpfiles.org</a> (hospedagem temporária, ~60 minutos). O QR gerado abre a página do arquivo diretamente ao ser escaneado.
               </div>
+
             </>
           )}
         </section>
