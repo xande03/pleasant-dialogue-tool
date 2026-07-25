@@ -16,20 +16,20 @@ type QrItem = {
   mime?: string;
   fileName?: string;
   qrDataUrl: string;   // PNG data URL of the QR
-  payload: string;     // original content (text/url or data:...;base64,)
-  qrPayload?: string;  // compact encrypted package actually embedded in the QR
-  qrScanUrl?: string;  // viewer URL embedded in the QR for scanners
+  payload: string;     // original content (text/url or tmpfiles URL)
+  qrPayload?: string;  // compact encrypted package actually embedded in the QR (text/url only)
+  qrScanUrl?: string;  // URL embedded in the QR for scanners (viewer or tmpfiles)
   encrypted?: boolean;
+  tmpUrl?: string;     // tmpfiles.org URL for uploaded media/files
+  previewUrl?: string; // local blob URL for inline preview
 };
 
 const STORAGE_KEY = "qr-tool:history:v1";
 const QR_PREFIX = "AISQR1";
-// QR v40 with EC "L" holds up to 2953 bytes binary — we use EC "L" for media
-// so images/music (as data URLs) can actually fit.
 const MAX_QR_CHARS = 2750;
-const IMG_TARGET_MAX = 1550; // target content size before encrypted wrapper overhead
-const FILE_MAX_BYTES = 1050; // hard cap for generic file payloads before encryption
-const MUSIC_MAX_BYTES = 1050; // hard cap for audio payload (base64 expands ~4/3)
+// tmpfiles.org limits uploads to 100 MB
+const TMPFILES_MAX_BYTES = 100 * 1024 * 1024;
+
 
 const load = (): QrItem[] => {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
