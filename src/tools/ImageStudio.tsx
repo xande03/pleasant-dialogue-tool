@@ -117,6 +117,7 @@ export default function ImageStudio() {
   const [previewMain, setPreviewMain] = useState<string | null>(null);
   const [preview1, setPreview1] = useState<string | null>(null);
   const [preview2, setPreview2] = useState<string | null>(null);
+  const [styleExpanded, setStyleExpanded] = useState(false);
   const fileMain = useRef<HTMLInputElement>(null);
   const file1 = useRef<HTMLInputElement>(null);
   const file2 = useRef<HTMLInputElement>(null);
