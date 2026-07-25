@@ -328,6 +328,60 @@ export default function ImageStudio() {
           </button>
         </Card>
 
+        <Card icon={HistoryIcon} title="Histórico" subtitle={history.length ? `${history.length} geração${history.length > 1 ? "es" : ""}` : "Nenhuma ainda"}>
+          {history.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground py-3 text-center">
+              Suas imagens geradas aparecerão aqui para iterar rapidamente.
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-1.5 max-h-[220px] overflow-y-auto scrollbar-thin pr-1">
+                {history.map(h => (
+                  <div key={h.id} className="relative group aspect-square rounded-lg overflow-hidden ink-border bg-secondary">
+                    <img src={h.url} alt={h.prompt} loading="lazy" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-foreground/70 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-1 p-1">
+                      <button
+                        onClick={() => restoreEntry(h, true)}
+                        title="Restaurar tudo"
+                        className="w-full text-[9.5px] font-semibold py-1 rounded bg-background text-foreground flex items-center justify-center gap-1 hover:bg-primary hover:text-primary-foreground"
+                      >
+                        <RotateCcw className="w-2.5 h-2.5" /> Voltar
+                      </button>
+                      <button
+                        onClick={() => restoreEntry(h, false)}
+                        title="Duplicar prompt"
+                        className="w-full text-[9.5px] font-semibold py-1 rounded bg-background text-foreground flex items-center justify-center gap-1 hover:bg-primary hover:text-primary-foreground"
+                      >
+                        <Copy className="w-2.5 h-2.5" /> Duplicar
+                      </button>
+                      <button
+                        onClick={() => removeEntry(h.id)}
+                        title="Remover"
+                        className="w-full text-[9.5px] font-semibold py-1 rounded bg-destructive text-destructive-foreground flex items-center justify-center gap-1"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" /> Remover
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={clearHistory}
+                className="mt-2 w-full glass rounded-lg py-1.5 text-[11px] font-semibold flex items-center justify-center gap-1 hover:border-destructive/40 hover:text-destructive transition"
+              >
+                <Trash2 className="w-3 h-3" /> Limpar histórico
+              </button>
+            </>
+          )}
+        </Card>
+
+        <button
+          onClick={() => setLivePreview(v => !v)}
+          className={`w-full rounded-xl py-2.5 text-[12px] font-semibold flex items-center justify-center gap-2 transition ink-border ${livePreview ? "bg-primary text-primary-foreground" : "glass hover:border-primary/40"}`}
+        >
+          {livePreview ? <><Eye className="w-4 h-4" /> Preview ao vivo ativo</> : <><EyeOff className="w-4 h-4" /> Ativar preview ao vivo</>}
+        </button>
+
         <button onClick={generate} disabled={loading}
           className="sticky bottom-0 w-full gradient-aurora text-primary-foreground font-semibold py-3 rounded-xl flex items-center justify-center gap-2 glow-primary hover:-translate-y-0.5 transition disabled:opacity-60">
           {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando…</> : <><Rocket className="w-4 h-4" /> Gerar Imagem</>}
