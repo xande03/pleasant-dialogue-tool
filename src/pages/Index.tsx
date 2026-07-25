@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Sparkles, QrCode, FileText, Menu, X } from "lucide-react";
+import { Sparkles, QrCode, FileText, Menu, X, Sun, Moon } from "lucide-react";
 import ImageStudio from "@/tools/ImageStudio";
 import QrTool from "@/tools/QrTool";
 import PdfTool from "@/tools/PdfTool";
 
 type ToolKey = "image" | "qr" | "pdf";
+type Theme = "light" | "dark";
 
 const TOOLS: { key: ToolKey; Icon: typeof Sparkles; label: string; subtitle: string }[] = [
   { key: "image", Icon: Sparkles, label: "Image Studio", subtitle: "AI generation" },
@@ -17,12 +18,22 @@ const Index = () => {
     try { return (localStorage.getItem("app:tool") as ToolKey) || "image"; } catch { return "image"; }
   });
   const [mobileNav, setMobileNav] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      const saved = localStorage.getItem("app:theme") as Theme | null;
+      if (saved) return saved;
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    } catch { return "light"; }
+  });
 
   useEffect(() => {
-    document.documentElement.classList.remove("dark");
-    document.documentElement.removeAttribute("data-theme");
-  }, []);
+    const root = document.documentElement;
+    if (theme === "dark") root.classList.add("dark"); else root.classList.remove("dark");
+    try { localStorage.setItem("app:theme", theme); } catch {}
+  }, [theme]);
   useEffect(() => { try { localStorage.setItem("app:tool", active); } catch {} }, [active]);
+
+  const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
   const currentTool = TOOLS.find(t => t.key === active)!;
   const Tool = active === "image" ? ImageStudio : active === "qr" ? QrTool : PdfTool;
