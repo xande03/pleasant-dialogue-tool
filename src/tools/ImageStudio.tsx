@@ -392,12 +392,23 @@ export default function ImageStudio() {
       <section className="flex-1 relative bg-dot-grid rounded-2xl glass overflow-hidden min-h-[400px] lg:min-h-0 flex items-center justify-center p-3 sm:p-4">
         <div className="pointer-events-none absolute -top-24 -left-24 w-72 h-72 rounded-full bg-primary/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-accent/15 blur-3xl" />
-        {!imgUrl && !loading && (
+        {!imgUrl && !loading && !livePreviewUrl && (
           <div className="text-center text-muted-foreground p-6 relative z-10">
             <div className="w-20 h-20 mx-auto mb-4 rounded-3xl glass flex items-center justify-center"><ImageIcon className="w-9 h-9 opacity-60" /></div>
             <div className="font-display text-lg">Sua obra aparecerá aqui</div>
-            <div className="text-xs mt-1 opacity-70">Descreva algo e toque em Gerar</div>
+            <div className="text-xs mt-1 opacity-70">
+              {livePreview ? "Comece a digitar para ver o preview…" : "Descreva algo e toque em Gerar"}
+            </div>
           </div>
+        )}
+        {!imgUrl && !loading && livePreviewUrl && (
+          <>
+            <img src={livePreviewUrl} alt="Preview ao vivo" className="relative z-10 max-w-full max-h-full object-contain rounded-xl opacity-80" style={{ filter: "saturate(0.95)" }} />
+            <div className="absolute top-4 left-4 z-20 px-2.5 py-1 rounded-full ink-border bg-background/90 backdrop-blur-sm text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5">
+              {livePreviewLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+              Preview
+            </div>
+          </>
         )}
         {loading && (
           <div className="flex flex-col items-center gap-4 z-10 relative">
