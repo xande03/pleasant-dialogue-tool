@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Sparkles, QrCode, FileText, Menu, X } from "lucide-react";
+import { Sparkles, QrCode, FileText, Menu, X, Palette } from "lucide-react";
 import ImageStudio from "@/tools/ImageStudio";
 import QrTool from "@/tools/QrTool";
 import PdfTool from "@/tools/PdfTool";
 
 type ToolKey = "image" | "qr" | "pdf";
+type ThemeKey = "aurora" | "noir";
 
 const TOOLS: { key: ToolKey; Icon: typeof Sparkles; label: string; subtitle: string }[] = [
   { key: "image", Icon: Sparkles, label: "AI Image", subtitle: "Gere imagens com IA" },
@@ -12,14 +13,26 @@ const TOOLS: { key: ToolKey; Icon: typeof Sparkles; label: string; subtitle: str
   { key: "pdf", Icon: FileText, label: "PDF ↔ DOCX", subtitle: "Conversor de documentos" },
 ];
 
+const THEMES: { key: ThemeKey; label: string; swatch: string[] }[] = [
+  { key: "aurora", label: "Glass Aurora", swatch: ["#a78bfa", "#4ade80", "#0e1024"] },
+  { key: "noir", label: "Noir & Gold", swatch: ["#c9a84c", "#f0d78c", "#0d0d0d"] },
+];
+
 const Index = () => {
   const [active, setActive] = useState<ToolKey>(() => {
     try { return (localStorage.getItem("app:tool") as ToolKey) || "image"; } catch { return "image"; }
+  });
+  const [theme, setTheme] = useState<ThemeKey>(() => {
+    try { return (localStorage.getItem("app:theme") as ThemeKey) || "aurora"; } catch { return "aurora"; }
   });
   const [mobileNav, setMobileNav] = useState(false);
 
   useEffect(() => { document.documentElement.classList.add("dark"); }, []);
   useEffect(() => { try { localStorage.setItem("app:tool", active); } catch {} }, [active]);
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem("app:theme", theme); } catch {}
+  }, [theme]);
 
   const currentTool = TOOLS.find(t => t.key === active)!;
 
