@@ -5,6 +5,7 @@ import {
   Wand2, SlidersHorizontal, Palette, Ratio as RatioIcon, Type as TypeIcon,
   Sticker, MessageSquare, Plus, Target, Layers, Combine, Cpu,
   Blocks, Film, Drama, ChevronDown, ChevronUp,
+  History as HistoryIcon, Copy, Trash2, Eye, EyeOff, RotateCcw,
 } from "lucide-react";
 import { expandKnownTerms, getCachedEnhancement, setCachedEnhancement } from "@/lib/prompt-knowledge";
 
@@ -118,6 +119,14 @@ export default function ImageStudio() {
   const [preview1, setPreview1] = useState<string | null>(null);
   const [preview2, setPreview2] = useState<string | null>(null);
   const [styleExpanded, setStyleExpanded] = useState(false);
+  const [history, setHistory] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem("ai-studio:history") || "[]"); } catch { return []; }
+  });
+  const [livePreview, setLivePreview] = useState<boolean>(() => {
+    try { return localStorage.getItem("ai-studio:livePreview") === "1"; } catch { return false; }
+  });
+  const [livePreviewUrl, setLivePreviewUrl] = useState<string | null>(null);
+  const [livePreviewLoading, setLivePreviewLoading] = useState(false);
   const fileMain = useRef<HTMLInputElement>(null);
   const file1 = useRef<HTMLInputElement>(null);
   const file2 = useRef<HTMLInputElement>(null);
@@ -127,11 +136,52 @@ export default function ImageStudio() {
   const showTwoImages = mode === "edit" && currentFn === "compose";
 
   useEffect(() => { try { localStorage.setItem("ai-studio:model", model); } catch {} }, [model]);
+  useEffect(() => { try { localStorage.setItem("ai-studio:livePreview", livePreview ? "1" : "0"); } catch {} }, [livePreview]);
+  useEffect(() => {
+    try { localStorage.setItem("ai-studio:history", JSON.stringify(history.slice(0, 24))); } catch {}
+  }, [history]);
+
+  // Live preview — debounced low-res render as user types
+  useEffect(() => {
+    if (!livePreview) { setLivePreviewUrl(null); return; }
+    const p = prompt.trim();
+    if (!p || p.length < 4) { setLivePreviewUrl(null); return; }
+    setLivePreviewLoading(true);
+    const t = setTimeout(() => {
+      const short = p.slice(0, 220);
+      const suffix = style ? `, ${style} style` : "";
+      const w = ratio.w >= ratio.h ? 384 : Math.round(384 * (ratio.w / ratio.h));
+      const h = ratio.h >= ratio.w ? 384 : Math.round(384 * (ratio.h / ratio.w));
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(short + suffix)}?width=${w}&height=${h}&nologo=true&seed=42&model=turbo&nofeed=true&enhance=false`;
+      preloadImage(url).then(() => setLivePreviewUrl(url)).catch(() => {}).finally(() => setLivePreviewLoading(false));
+    }, 750);
+    return () => { clearTimeout(t); setLivePreviewLoading(false); };
+  }, [prompt, style, ratio, livePreview]);
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (v: string) => void) => {
     const f = e.target.files?.[0]; if (!f) return;
     const r = new FileReader(); r.onload = ev => setter(ev.target?.result as string); r.readAsDataURL(f);
   };
+
+  const restoreEntry = (h: any, restoreAll = true) => {
+    setPrompt(h.prompt || "");
+    if (restoreAll) {
+      if (h.style !== undefined) setStyle(h.style);
+      if (h.mode) setMode(h.mode);
+      if (h.createFn) setCreateFn(h.createFn);
+      if (h.model) setModel(h.model);
+      if (h.ratio) {
+        const r = RATIOS.find(r => r.ratio === h.ratio);
+        if (r) setRatio(r);
+      }
+      if (h.url) setImgUrl(h.url);
+      toast.success("Geração restaurada");
+    } else {
+      toast.success("Prompt duplicado — ajuste e gere");
+    }
+  };
+  const removeEntry = (id: string) => setHistory(h => h.filter(x => x.id !== id));
+  const clearHistory = () => { setHistory([]); toast.message("Histórico limpo"); };
 
   const generate = useCallback(async () => {
     if (loading) return;
@@ -173,6 +223,10 @@ export default function ImageStudio() {
 
       await preloadImage(url);
       setImgUrl(url);
+      setHistory(prev => [
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, prompt: userPrompt, style, mode, createFn, model, ratio: ratio.ratio, url, ts: Date.now() },
+        ...prev,
+      ].slice(0, 24));
       toast.success("Imagem gerada!");
     } catch { toast.error("Erro na geração."); }
     finally { setLoading(false); }
@@ -274,6 +328,60 @@ export default function ImageStudio() {
           </button>
         </Card>
 
+        <Card icon={HistoryIcon} title="Histórico" subtitle={history.length ? `${history.length} geração${history.length > 1 ? "es" : ""}` : "Nenhuma ainda"}>
+          {history.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground py-3 text-center">
+              Suas imagens geradas aparecerão aqui para iterar rapidamente.
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-1.5 max-h-[220px] overflow-y-auto scrollbar-thin pr-1">
+                {history.map(h => (
+                  <div key={h.id} className="relative group aspect-square rounded-lg overflow-hidden ink-border bg-secondary">
+                    <img src={h.url} alt={h.prompt} loading="lazy" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-foreground/70 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-1 p-1">
+                      <button
+                        onClick={() => restoreEntry(h, true)}
+                        title="Restaurar tudo"
+                        className="w-full text-[9.5px] font-semibold py-1 rounded bg-background text-foreground flex items-center justify-center gap-1 hover:bg-primary hover:text-primary-foreground"
+                      >
+                        <RotateCcw className="w-2.5 h-2.5" /> Voltar
+                      </button>
+                      <button
+                        onClick={() => restoreEntry(h, false)}
+                        title="Duplicar prompt"
+                        className="w-full text-[9.5px] font-semibold py-1 rounded bg-background text-foreground flex items-center justify-center gap-1 hover:bg-primary hover:text-primary-foreground"
+                      >
+                        <Copy className="w-2.5 h-2.5" /> Duplicar
+                      </button>
+                      <button
+                        onClick={() => removeEntry(h.id)}
+                        title="Remover"
+                        className="w-full text-[9.5px] font-semibold py-1 rounded bg-destructive text-destructive-foreground flex items-center justify-center gap-1"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" /> Remover
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={clearHistory}
+                className="mt-2 w-full glass rounded-lg py-1.5 text-[11px] font-semibold flex items-center justify-center gap-1 hover:border-destructive/40 hover:text-destructive transition"
+              >
+                <Trash2 className="w-3 h-3" /> Limpar histórico
+              </button>
+            </>
+          )}
+        </Card>
+
+        <button
+          onClick={() => setLivePreview(v => !v)}
+          className={`w-full rounded-xl py-2.5 text-[12px] font-semibold flex items-center justify-center gap-2 transition ink-border ${livePreview ? "bg-primary text-primary-foreground" : "glass hover:border-primary/40"}`}
+        >
+          {livePreview ? <><Eye className="w-4 h-4" /> Preview ao vivo ativo</> : <><EyeOff className="w-4 h-4" /> Ativar preview ao vivo</>}
+        </button>
+
         <button onClick={generate} disabled={loading}
           className="sticky bottom-0 w-full gradient-aurora text-primary-foreground font-semibold py-3 rounded-xl flex items-center justify-center gap-2 glow-primary hover:-translate-y-0.5 transition disabled:opacity-60">
           {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando…</> : <><Rocket className="w-4 h-4" /> Gerar Imagem</>}
@@ -284,12 +392,23 @@ export default function ImageStudio() {
       <section className="flex-1 relative bg-dot-grid rounded-2xl glass overflow-hidden min-h-[400px] lg:min-h-0 flex items-center justify-center p-3 sm:p-4">
         <div className="pointer-events-none absolute -top-24 -left-24 w-72 h-72 rounded-full bg-primary/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-accent/15 blur-3xl" />
-        {!imgUrl && !loading && (
+        {!imgUrl && !loading && !livePreviewUrl && (
           <div className="text-center text-muted-foreground p-6 relative z-10">
             <div className="w-20 h-20 mx-auto mb-4 rounded-3xl glass flex items-center justify-center"><ImageIcon className="w-9 h-9 opacity-60" /></div>
             <div className="font-display text-lg">Sua obra aparecerá aqui</div>
-            <div className="text-xs mt-1 opacity-70">Descreva algo e toque em Gerar</div>
+            <div className="text-xs mt-1 opacity-70">
+              {livePreview ? "Comece a digitar para ver o preview…" : "Descreva algo e toque em Gerar"}
+            </div>
           </div>
+        )}
+        {!imgUrl && !loading && livePreviewUrl && (
+          <>
+            <img src={livePreviewUrl} alt="Preview ao vivo" className="relative z-10 max-w-full max-h-full object-contain rounded-xl opacity-80" style={{ filter: "saturate(0.95)" }} />
+            <div className="absolute top-4 left-4 z-20 px-2.5 py-1 rounded-full ink-border bg-background/90 backdrop-blur-sm text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5">
+              {livePreviewLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+              Preview
+            </div>
+          </>
         )}
         {loading && (
           <div className="flex flex-col items-center gap-4 z-10 relative">

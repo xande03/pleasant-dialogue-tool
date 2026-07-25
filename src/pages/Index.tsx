@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Sparkles, QrCode, FileText, Menu, X } from "lucide-react";
+import { Sparkles, QrCode, FileText, Menu, X, Sun, Moon } from "lucide-react";
 import ImageStudio from "@/tools/ImageStudio";
 import QrTool from "@/tools/QrTool";
 import PdfTool from "@/tools/PdfTool";
 
 type ToolKey = "image" | "qr" | "pdf";
+type Theme = "light" | "dark";
 
 const TOOLS: { key: ToolKey; Icon: typeof Sparkles; label: string; subtitle: string }[] = [
   { key: "image", Icon: Sparkles, label: "Image Studio", subtitle: "AI generation" },
@@ -17,12 +18,22 @@ const Index = () => {
     try { return (localStorage.getItem("app:tool") as ToolKey) || "image"; } catch { return "image"; }
   });
   const [mobileNav, setMobileNav] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      const saved = localStorage.getItem("app:theme") as Theme | null;
+      if (saved) return saved;
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    } catch { return "light"; }
+  });
 
   useEffect(() => {
-    document.documentElement.classList.remove("dark");
-    document.documentElement.removeAttribute("data-theme");
-  }, []);
+    const root = document.documentElement;
+    if (theme === "dark") root.classList.add("dark"); else root.classList.remove("dark");
+    try { localStorage.setItem("app:theme", theme); } catch {}
+  }, [theme]);
   useEffect(() => { try { localStorage.setItem("app:tool", active); } catch {} }, [active]);
+
+  const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
   const currentTool = TOOLS.find(t => t.key === active)!;
   const Tool = active === "image" ? ImageStudio : active === "qr" ? QrTool : PdfTool;
@@ -102,7 +113,13 @@ const Index = () => {
           </div>
           <span className="font-display text-[13px] truncate">{currentTool.label}</span>
         </div>
-        <div className="w-10" />
+        <button
+          onClick={toggleTheme}
+          className="w-10 h-10 rounded-xl ink-border bg-background flex items-center justify-center brutal-hover"
+          aria-label="Alternar tema"
+        >
+          {theme === "dark" ? <Sun className="w-4 h-4" strokeWidth={2} /> : <Moon className="w-4 h-4" strokeWidth={2} />}
+        </button>
       </header>
 
       {/* Mobile drawer */}
@@ -147,6 +164,14 @@ const Index = () => {
             </div>
           </div>
           <div className="hidden lg:flex items-center gap-2.5">
+            <button
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-xl ink-border bg-background flex items-center justify-center brutal-hover"
+              aria-label="Alternar tema"
+              title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" strokeWidth={2} /> : <Moon className="w-4 h-4" strokeWidth={2} />}
+            </button>
             <div className="px-3 py-1.5 rounded-full ink-border bg-background text-[10.5px] font-semibold tracking-wide text-muted-foreground uppercase">
               v3 · Premium
             </div>
