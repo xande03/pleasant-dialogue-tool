@@ -142,6 +142,9 @@ export default function ImageStudio() {
       if (createFn === "sticker") finalPrompt += ", die-cut sticker design, white background, vector art, bold outlines, isolated";
       if (createFn === "text") finalPrompt += ", minimalist logo design, vector graphics, flat design, centered, clean background";
       if (createFn === "comic") finalPrompt += ", comic book style, bold black outlines, halftone dots, vibrant colors, dynamic action";
+      if (createFn === "lego") finalPrompt += ", built entirely from LEGO bricks, official LEGO minifigure aesthetic, plastic studs visible, sharp macro photography, soft studio lighting, playful diorama";
+      if (createFn === "poster") finalPrompt += ", cinematic movie poster, dramatic key art composition, bold typography space at bottom, moody lighting, high contrast, teal and orange grading, IMAX 35mm film aesthetic";
+      if (createFn === "anime") finalPrompt += ", high quality anime illustration, cel shaded, expressive eyes, Studio Ghibli meets Makoto Shinkai lighting, vibrant color palette, detailed background, 2D key visual";
     }
     const { expanded, matches } = expandKnownTerms(finalPrompt);
     finalPrompt = expanded;
