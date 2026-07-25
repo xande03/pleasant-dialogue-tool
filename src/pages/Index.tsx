@@ -77,9 +77,27 @@ const Index = () => {
             );
           })}
         </div>
-        <div className="p-4 border-t border-border/40">
-          <div className="text-[10px] text-muted-foreground leading-relaxed">
-            Todos os dados ficam no seu navegador. Nenhum upload é enviado a servidores.
+        <div className="p-3 border-t border-border/40 space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <Palette className="w-3.5 h-3.5 text-muted-foreground" />
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Tema</div>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {THEMES.map(t => {
+              const on = theme === t.key;
+              return (
+                <button key={t.key} onClick={() => setTheme(t.key)}
+                  className={`flex flex-col items-start gap-1.5 p-2 rounded-lg border transition text-left ${on ? "border-primary/60 bg-primary/10" : "border-border/40 hover:border-border hover:bg-white/5"}`}>
+                  <div className="flex gap-1">
+                    {t.swatch.map(c => <span key={c} className="w-3 h-3 rounded-full border border-white/10" style={{ background: c }} />)}
+                  </div>
+                  <span className="text-[10px] font-medium truncate">{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="text-[10px] text-muted-foreground leading-relaxed pt-1">
+            Dados ficam no seu navegador.
           </div>
         </div>
       </nav>
