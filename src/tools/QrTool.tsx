@@ -230,13 +230,8 @@ export default function QrTool() {
     a.click();
   };
 
-  const downloadPayload = (item: QrItem) => {
-    if (item.kind !== "file" && item.kind !== "image" && item.kind !== "music") return;
-    const a = document.createElement("a");
-    a.href = item.payload;
-    a.download = item.fileName || "arquivo";
-    a.click();
-  };
+
+
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4 lg:p-6 min-h-full w-full max-w-full overflow-x-hidden">
