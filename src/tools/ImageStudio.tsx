@@ -228,19 +228,19 @@ export default function ImageStudio() {
           <div className="grid grid-cols-5 gap-1.5">
             {RATIOS.map(r => (
               <button key={r.ratio} onClick={() => setRatio(r)} title={r.tip}
-                className={`aspect-square rounded-lg border flex flex-col items-center justify-center gap-1 transition ${ratio.ratio === r.ratio ? "gradient-aurora border-transparent text-primary-foreground" : "glass hover:border-primary/30"}`}>
-                <div className="border-2 border-current rounded-sm" style={{ width: Math.min(20, (r.w / Math.max(r.w, r.h)) * 18), height: Math.min(20, (r.h / Math.max(r.w, r.h)) * 18) }} />
-                <span className="text-[9px] font-semibold">{r.label}</span>
+                className={`min-h-[64px] rounded-lg border flex flex-col items-center justify-center gap-1.5 p-1 transition ${ratio.ratio === r.ratio ? "gradient-aurora border-transparent text-primary-foreground" : "glass hover:border-primary/30"}`}>
+                <div className="border-2 border-current rounded-sm" style={{ width: (r.w / Math.max(r.w, r.h)) * 24, height: (r.h / Math.max(r.w, r.h)) * 24 }} />
+                <span className="text-[10px] font-semibold">{r.label}</span>
               </button>
             ))}
           </div>
         </Card>
 
-        <Card icon={Palette} title="Estilo">
-          <div className="grid grid-cols-2 gap-1.5 max-h-[220px] overflow-y-auto scrollbar-thin pr-1">
+        <Card icon={Palette} title="Estilo" subtitle={STYLES.find(s => s.v === style)?.l || "Padrão"}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
             {STYLES.map(s => (
               <button key={s.v} onClick={() => setStyle(s.v)}
-                className={`p-2 rounded-lg border text-left text-[11px] transition ${style === s.v ? "bg-primary/15 border-primary/60 text-primary" : "glass hover:border-primary/30"}`}>
+                className={`px-2 py-2 rounded-lg border text-center text-[11px] font-medium transition ${style === s.v ? "bg-primary/15 border-primary/60 text-primary" : "glass hover:border-primary/30 text-muted-foreground hover:text-foreground"}`}>
                 {s.l}
               </button>
             ))}
