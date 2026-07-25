@@ -28,7 +28,7 @@ const Index = () => {
   return (
     <div className="min-h-screen w-full flex">
       {/* Desktop tool rail */}
-      <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-[220px] z-30 flex-col glass-strong border-r border-border/40">
+      <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-[220px] xl:w-[260px] z-30 flex-col glass-strong border-r border-border/40">
         <div className="p-5 border-b border-border/40">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl gradient-aurora flex items-center justify-center glow-primary">
