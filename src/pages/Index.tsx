@@ -1,177 +1,155 @@
 import { useEffect, useState } from "react";
-import { Sparkles, QrCode, FileText, Menu, X, Palette } from "lucide-react";
+import { Sparkles, QrCode, FileText, Menu, X, Zap } from "lucide-react";
 import ImageStudio from "@/tools/ImageStudio";
 import QrTool from "@/tools/QrTool";
 import PdfTool from "@/tools/PdfTool";
 
 type ToolKey = "image" | "qr" | "pdf";
-type ThemeKey = "aurora" | "noir";
 
 const TOOLS: { key: ToolKey; Icon: typeof Sparkles; label: string; subtitle: string }[] = [
-  { key: "image", Icon: Sparkles, label: "AI Image", subtitle: "Gere imagens com IA" },
-  { key: "qr", Icon: QrCode, label: "QR Codes", subtitle: "Texto, links e arquivos" },
-  { key: "pdf", Icon: FileText, label: "PDF ↔ DOCX", subtitle: "Conversor de documentos" },
-];
-
-const THEMES: { key: ThemeKey; label: string; swatch: string[] }[] = [
-  { key: "aurora", label: "Glass Aurora", swatch: ["#a78bfa", "#4ade80", "#0e1024"] },
-  { key: "noir", label: "Noir & Gold", swatch: ["#c9a84c", "#f0d78c", "#0d0d0d"] },
+  { key: "image", Icon: Sparkles, label: "Image Studio", subtitle: "AI generation" },
+  { key: "qr", Icon: QrCode, label: "QR Tool", subtitle: "Codes & uploads" },
+  { key: "pdf", Icon: FileText, label: "PDF Tool", subtitle: "PDF ↔ DOCX" },
 ];
 
 const Index = () => {
   const [active, setActive] = useState<ToolKey>(() => {
     try { return (localStorage.getItem("app:tool") as ToolKey) || "image"; } catch { return "image"; }
   });
-  const [theme, setTheme] = useState<ThemeKey>(() => {
-    try { return (localStorage.getItem("app:theme") as ThemeKey) || "aurora"; } catch { return "aurora"; }
-  });
   const [mobileNav, setMobileNav] = useState(false);
 
-  useEffect(() => { document.documentElement.classList.add("dark"); }, []);
-  useEffect(() => { try { localStorage.setItem("app:tool", active); } catch {} }, [active]);
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    try { localStorage.setItem("app:theme", theme); } catch {}
-  }, [theme]);
+    document.documentElement.classList.remove("dark");
+    document.documentElement.removeAttribute("data-theme");
+  }, []);
+  useEffect(() => { try { localStorage.setItem("app:tool", active); } catch {} }, [active]);
 
   const currentTool = TOOLS.find(t => t.key === active)!;
-
   const Tool = active === "image" ? ImageStudio : active === "qr" ? QrTool : PdfTool;
 
+  const NavItem = ({ t, onClick }: { t: typeof TOOLS[number]; onClick?: () => void }) => {
+    const on = active === t.key;
+    return (
+      <button
+        onClick={() => { setActive(t.key); onClick?.(); }}
+        className={`w-full flex items-center gap-4 p-4 ink-border-thick brutal-hover text-left ${
+          on ? "bg-accent shadow-brutal" : "bg-background"
+        }`}
+      >
+        <div className="w-9 h-9 ink-border flex items-center justify-center shrink-0 bg-background">
+          <t.Icon className="w-4 h-4" strokeWidth={2.5} />
+        </div>
+        <div className="min-w-0">
+          <div className="font-display text-sm uppercase tracking-tight truncate">{t.label}</div>
+          <div className="text-[10px] font-semibold uppercase opacity-60 truncate">{t.subtitle}</div>
+        </div>
+      </button>
+    );
+  };
+
   return (
-    <div className="min-h-screen w-full flex">
-      {/* Desktop tool rail */}
-      <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-[220px] xl:w-[260px] z-30 flex-col glass-strong border-r border-border/40">
-        <div className="p-5 border-b border-border/40">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl gradient-aurora flex items-center justify-center glow-primary">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <div>
-              <div className="font-display text-base font-bold text-aurora leading-tight">Creator Suite</div>
-              <div className="text-[10px] text-muted-foreground">Ferramentas · Local</div>
-            </div>
+    <div className="flex min-h-screen w-full bg-background text-foreground overflow-hidden">
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-[260px] xl:w-[288px] z-30 border-r-4 border-foreground flex-col bg-background">
+        <div className="p-6 border-b-4 border-foreground flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary ink-border shadow-brutal-sm flex items-center justify-center">
+            <Zap className="w-5 h-5 text-primary-foreground" strokeWidth={3} />
+          </div>
+          <div className="min-w-0">
+            <div className="font-display text-xl leading-none uppercase tracking-tighter">Creator</div>
+            <div className="font-display text-xl leading-none uppercase tracking-tighter">Suite</div>
           </div>
         </div>
-        <div className="flex-1 p-3 space-y-1.5">
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground px-3 py-2">Ferramentas</div>
-          {TOOLS.map(t => {
-            const on = active === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setActive(t.key)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition text-left ${
-                  on ? "bg-primary/15 text-primary glow-primary border border-primary/40"
-                     : "text-muted-foreground hover:text-foreground hover:bg-white/5 border border-transparent"
-                }`}
-              >
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${on ? "gradient-aurora" : "glass"}`}>
-                  <t.Icon className={`w-4 h-4 ${on ? "text-primary-foreground" : ""}`} />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold truncate">{t.label}</div>
-                  <div className="text-[10px] text-muted-foreground truncate">{t.subtitle}</div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        <div className="p-3 border-t border-border/40 space-y-2">
-          <div className="flex items-center gap-2 px-1">
-            <Palette className="w-3.5 h-3.5 text-muted-foreground" />
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Tema</div>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {THEMES.map(t => {
-              const on = theme === t.key;
-              return (
-                <button key={t.key} onClick={() => setTheme(t.key)}
-                  className={`flex flex-col items-start gap-1.5 p-2 rounded-lg border transition text-left ${on ? "border-primary/60 bg-primary/10" : "border-border/40 hover:border-border hover:bg-white/5"}`}>
-                  <div className="flex gap-1">
-                    {t.swatch.map(c => <span key={c} className="w-3 h-3 rounded-full border border-white/10" style={{ background: c }} />)}
-                  </div>
-                  <span className="text-[10px] font-medium truncate">{t.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="text-[10px] text-muted-foreground leading-relaxed pt-1">
-            Dados ficam no seu navegador.
+
+        <nav className="flex-1 p-4 space-y-3 overflow-y-auto scrollbar-thin">
+          <div className="text-[10px] font-black uppercase tracking-widest px-1 pb-1 opacity-60">Tools</div>
+          {TOOLS.map(t => <NavItem key={t.key} t={t} />)}
+        </nav>
+
+        <div className="p-6 border-t-4 border-foreground bg-primary text-primary-foreground">
+          <div className="font-black uppercase text-xs mb-2 tracking-wider">Local Only</div>
+          <div className="text-[10px] font-semibold opacity-90 leading-relaxed">
+            All data stays inside your browser. No server, no tracking.
           </div>
         </div>
-      </nav>
+      </aside>
 
       {/* Mobile top bar */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-30 glass-strong border-b border-border/40 flex items-center justify-between px-3 h-14">
-        <button onClick={() => setMobileNav(true)} className="w-10 h-10 rounded-xl glass flex items-center justify-center" aria-label="Menu">
-          <Menu className="w-5 h-5" />
+      <header className="md:hidden fixed top-0 left-0 right-0 z-30 h-16 border-b-4 border-foreground bg-background flex items-center justify-between px-4">
+        <button
+          onClick={() => setMobileNav(true)}
+          className="w-11 h-11 ink-border-thick shadow-brutal-sm bg-background flex items-center justify-center brutal-hover"
+          aria-label="Menu"
+        >
+          <Menu className="w-5 h-5" strokeWidth={3} />
         </button>
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-8 h-8 rounded-lg gradient-aurora flex items-center justify-center shrink-0">
-            <currentTool.Icon className="w-4 h-4 text-primary-foreground" />
+          <div className="w-8 h-8 bg-accent ink-border flex items-center justify-center shrink-0">
+            <currentTool.Icon className="w-4 h-4" strokeWidth={3} />
           </div>
-          <span className="font-display font-bold text-aurora text-sm truncate">{currentTool.label}</span>
+          <span className="font-display text-sm uppercase tracking-tighter truncate">{currentTool.label}</span>
         </div>
-        <div className="w-10" />
+        <div className="w-11" />
       </header>
 
+      {/* Mobile drawer */}
       {mobileNav && (
         <div className="md:hidden fixed inset-0 z-40 flex">
-          <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={() => setMobileNav(false)} />
-          <div className="relative w-[85%] max-w-[300px] h-full glass-strong border-r border-border/40 flex flex-col">
-            <div className="p-4 border-b border-border/40 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl gradient-aurora flex items-center justify-center"><Sparkles className="w-4 h-4 text-primary-foreground" /></div>
-                <span className="font-display font-bold text-aurora">Creator Suite</span>
+          <div className="absolute inset-0 bg-foreground/50" onClick={() => setMobileNav(false)} />
+          <div className="relative w-[85%] max-w-[320px] h-full bg-background border-r-4 border-foreground flex flex-col">
+            <div className="p-5 border-b-4 border-foreground flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 bg-primary ink-border flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-primary-foreground" strokeWidth={3} />
+                </div>
+                <span className="font-display text-lg uppercase tracking-tighter">Creator Suite</span>
               </div>
-              <button onClick={() => setMobileNav(false)} className="w-9 h-9 rounded-xl glass flex items-center justify-center">
-                <X className="w-4 h-4" />
+              <button
+                onClick={() => setMobileNav(false)}
+                className="w-10 h-10 ink-border shadow-brutal-sm bg-background flex items-center justify-center brutal-hover"
+                aria-label="Fechar"
+              >
+                <X className="w-4 h-4" strokeWidth={3} />
               </button>
             </div>
-            <div className="flex-1 p-3 space-y-1.5">
-              {TOOLS.map(t => {
-                const on = active === t.key;
-                return (
-                  <button key={t.key} onClick={() => { setActive(t.key); setMobileNav(false); }}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition text-left ${on ? "bg-primary/15 text-primary border border-primary/40" : "hover:bg-white/5 border border-transparent"}`}>
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${on ? "gradient-aurora" : "glass"}`}>
-                      <t.Icon className={`w-4 h-4 ${on ? "text-primary-foreground" : ""}`} />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold">{t.label}</div>
-                      <div className="text-[10px] text-muted-foreground">{t.subtitle}</div>
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+              {TOOLS.map(t => <NavItem key={t.key} t={t} onClick={() => setMobileNav(false)} />)}
             </div>
-            <div className="p-3 border-t border-border/40">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2 px-1">Tema</div>
-              <div className="grid grid-cols-2 gap-2">
-                {THEMES.map(t => {
-                  const on = theme === t.key;
-                  return (
-                    <button key={t.key} onClick={() => setTheme(t.key)}
-                      className={`flex items-center gap-2 p-2 rounded-lg border transition ${on ? "border-primary/60 bg-primary/10" : "border-border/40"}`}>
-                      <div className="flex gap-0.5">
-                        {t.swatch.map(c => <span key={c} className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />)}
-                      </div>
-                      <span className="text-[10px] font-medium">{t.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="p-5 border-t-4 border-foreground bg-primary text-primary-foreground">
+              <div className="font-black uppercase text-xs">Local Only</div>
+              <div className="text-[10px] font-semibold opacity-90 mt-1">All data stays in your browser.</div>
             </div>
           </div>
         </div>
       )}
 
       {/* Main content */}
-      <main className="flex-1 md:ml-[220px] xl:ml-[260px] pt-14 md:pt-0 min-h-screen w-full max-w-full min-w-0 overflow-x-hidden">
-        <Tool />
-      </main>
+      <main className="flex-1 md:ml-[260px] xl:ml-[288px] pt-16 md:pt-0 min-h-screen w-full max-w-full min-w-0 overflow-x-hidden flex flex-col">
+        {/* Desktop tool header */}
+        <div className="hidden md:flex h-20 border-b-4 border-foreground bg-background items-center justify-between px-8 shrink-0">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-11 h-11 bg-accent ink-border-thick shadow-brutal-sm flex items-center justify-center shrink-0">
+              <currentTool.Icon className="w-5 h-5" strokeWidth={3} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-display text-2xl xl:text-3xl uppercase tracking-tighter leading-none truncate">
+                {currentTool.label}
+              </h2>
+              <div className="text-[11px] font-bold uppercase tracking-widest opacity-60 mt-1">{currentTool.subtitle}</div>
+            </div>
+          </div>
+          <div className="hidden lg:flex items-center gap-3">
+            <div className="px-4 py-2 ink-border-thick bg-background font-black uppercase text-xs tracking-wide">
+              v2 · Brutalist
+            </div>
+            <div className="w-11 h-11 ink-border-thick bg-primary shadow-brutal-sm" />
+          </div>
+        </div>
 
+        <div className="flex-1 min-h-0 w-full">
+          <Tool />
+        </div>
+      </main>
     </div>
   );
 };
