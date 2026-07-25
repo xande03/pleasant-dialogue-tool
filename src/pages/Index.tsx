@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Sparkles, QrCode, FileText, Menu, X } from "lucide-react";
+import { Sparkles, QrCode, FileText, Menu, X, Palette } from "lucide-react";
 import ImageStudio from "@/tools/ImageStudio";
 import QrTool from "@/tools/QrTool";
 import PdfTool from "@/tools/PdfTool";
 
 type ToolKey = "image" | "qr" | "pdf";
+type ThemeKey = "aurora" | "noir";
 
 const TOOLS: { key: ToolKey; Icon: typeof Sparkles; label: string; subtitle: string }[] = [
   { key: "image", Icon: Sparkles, label: "AI Image", subtitle: "Gere imagens com IA" },
@@ -12,14 +13,26 @@ const TOOLS: { key: ToolKey; Icon: typeof Sparkles; label: string; subtitle: str
   { key: "pdf", Icon: FileText, label: "PDF ↔ DOCX", subtitle: "Conversor de documentos" },
 ];
 
+const THEMES: { key: ThemeKey; label: string; swatch: string[] }[] = [
+  { key: "aurora", label: "Glass Aurora", swatch: ["#a78bfa", "#4ade80", "#0e1024"] },
+  { key: "noir", label: "Noir & Gold", swatch: ["#c9a84c", "#f0d78c", "#0d0d0d"] },
+];
+
 const Index = () => {
   const [active, setActive] = useState<ToolKey>(() => {
     try { return (localStorage.getItem("app:tool") as ToolKey) || "image"; } catch { return "image"; }
+  });
+  const [theme, setTheme] = useState<ThemeKey>(() => {
+    try { return (localStorage.getItem("app:theme") as ThemeKey) || "aurora"; } catch { return "aurora"; }
   });
   const [mobileNav, setMobileNav] = useState(false);
 
   useEffect(() => { document.documentElement.classList.add("dark"); }, []);
   useEffect(() => { try { localStorage.setItem("app:tool", active); } catch {} }, [active]);
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem("app:theme", theme); } catch {}
+  }, [theme]);
 
   const currentTool = TOOLS.find(t => t.key === active)!;
 
@@ -64,9 +77,27 @@ const Index = () => {
             );
           })}
         </div>
-        <div className="p-4 border-t border-border/40">
-          <div className="text-[10px] text-muted-foreground leading-relaxed">
-            Todos os dados ficam no seu navegador. Nenhum upload é enviado a servidores.
+        <div className="p-3 border-t border-border/40 space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <Palette className="w-3.5 h-3.5 text-muted-foreground" />
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Tema</div>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {THEMES.map(t => {
+              const on = theme === t.key;
+              return (
+                <button key={t.key} onClick={() => setTheme(t.key)}
+                  className={`flex flex-col items-start gap-1.5 p-2 rounded-lg border transition text-left ${on ? "border-primary/60 bg-primary/10" : "border-border/40 hover:border-border hover:bg-white/5"}`}>
+                  <div className="flex gap-1">
+                    {t.swatch.map(c => <span key={c} className="w-3 h-3 rounded-full border border-white/10" style={{ background: c }} />)}
+                  </div>
+                  <span className="text-[10px] font-medium truncate">{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="text-[10px] text-muted-foreground leading-relaxed pt-1">
+            Dados ficam no seu navegador.
           </div>
         </div>
       </nav>
@@ -114,6 +145,23 @@ const Index = () => {
                   </button>
                 );
               })}
+            </div>
+            <div className="p-3 border-t border-border/40">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2 px-1">Tema</div>
+              <div className="grid grid-cols-2 gap-2">
+                {THEMES.map(t => {
+                  const on = theme === t.key;
+                  return (
+                    <button key={t.key} onClick={() => setTheme(t.key)}
+                      className={`flex items-center gap-2 p-2 rounded-lg border transition ${on ? "border-primary/60 bg-primary/10" : "border-border/40"}`}>
+                      <div className="flex gap-0.5">
+                        {t.swatch.map(c => <span key={c} className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />)}
+                      </div>
+                      <span className="text-[10px] font-medium">{t.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
