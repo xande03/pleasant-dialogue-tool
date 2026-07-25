@@ -223,6 +223,10 @@ export default function ImageStudio() {
 
       await preloadImage(url);
       setImgUrl(url);
+      setHistory(prev => [
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, prompt: userPrompt, style, mode, createFn, model, ratio: ratio.ratio, url, ts: Date.now() },
+        ...prev,
+      ].slice(0, 24));
       toast.success("Imagem gerada!");
     } catch { toast.error("Erro na geração."); }
     finally { setLoading(false); }
