@@ -37,6 +37,9 @@ const CREATE_FNS: { id: CreateFn; Icon: typeof Sparkles; label: string }[] = [
   { id: "sticker", Icon: Sticker, label: "Adesivos" },
   { id: "text", Icon: TypeIcon, label: "Logo" },
   { id: "comic", Icon: MessageSquare, label: "HQ" },
+  { id: "lego", Icon: Blocks, label: "Lego" },
+  { id: "poster", Icon: Film, label: "Poster" },
+  { id: "anime", Icon: Drama, label: "Anime" },
 ];
 const EDIT_FNS: { id: EditFn; Icon: typeof Plus; label: string }[] = [
   { id: "add-remove", Icon: Plus, label: "Adicionar" },
