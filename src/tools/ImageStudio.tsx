@@ -9,7 +9,7 @@ import {
 import { expandKnownTerms, getCachedEnhancement, setCachedEnhancement } from "@/lib/prompt-knowledge";
 
 type Mode = "create" | "edit";
-type CreateFn = "free" | "sticker" | "text" | "comic";
+type CreateFn = "free" | "sticker" | "text" | "comic" | "lego" | "poster" | "anime";
 type EditFn = "add-remove" | "retouch" | "style" | "compose";
 
 const RATIOS = [
