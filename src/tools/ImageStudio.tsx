@@ -4,11 +4,12 @@ import {
   Sparkles, Download, Pencil, Upload, Rocket, Loader2, ImageIcon,
   Wand2, SlidersHorizontal, Palette, Ratio as RatioIcon, Type as TypeIcon,
   Sticker, MessageSquare, Plus, Target, Layers, Combine, Cpu,
+  Blocks, Film, Drama,
 } from "lucide-react";
 import { expandKnownTerms, getCachedEnhancement, setCachedEnhancement } from "@/lib/prompt-knowledge";
 
 type Mode = "create" | "edit";
-type CreateFn = "free" | "sticker" | "text" | "comic";
+type CreateFn = "free" | "sticker" | "text" | "comic" | "lego" | "poster" | "anime";
 type EditFn = "add-remove" | "retouch" | "style" | "compose";
 
 const RATIOS = [
@@ -36,6 +37,9 @@ const CREATE_FNS: { id: CreateFn; Icon: typeof Sparkles; label: string }[] = [
   { id: "sticker", Icon: Sticker, label: "Adesivos" },
   { id: "text", Icon: TypeIcon, label: "Logo" },
   { id: "comic", Icon: MessageSquare, label: "HQ" },
+  { id: "lego", Icon: Blocks, label: "Lego" },
+  { id: "poster", Icon: Film, label: "Poster" },
+  { id: "anime", Icon: Drama, label: "Anime" },
 ];
 const EDIT_FNS: { id: EditFn; Icon: typeof Plus; label: string }[] = [
   { id: "add-remove", Icon: Plus, label: "Adicionar" },
@@ -138,6 +142,9 @@ export default function ImageStudio() {
       if (createFn === "sticker") finalPrompt += ", die-cut sticker design, white background, vector art, bold outlines, isolated";
       if (createFn === "text") finalPrompt += ", minimalist logo design, vector graphics, flat design, centered, clean background";
       if (createFn === "comic") finalPrompt += ", comic book style, bold black outlines, halftone dots, vibrant colors, dynamic action";
+      if (createFn === "lego") finalPrompt += ", built entirely from LEGO bricks, official LEGO minifigure aesthetic, plastic studs visible, sharp macro photography, soft studio lighting, playful diorama";
+      if (createFn === "poster") finalPrompt += ", cinematic movie poster, dramatic key art composition, bold typography space at bottom, moody lighting, high contrast, teal and orange grading, IMAX 35mm film aesthetic";
+      if (createFn === "anime") finalPrompt += ", high quality anime illustration, cel shaded, expressive eyes, Studio Ghibli meets Makoto Shinkai lighting, vibrant color palette, detailed background, 2D key visual";
     }
     const { expanded, matches } = expandKnownTerms(finalPrompt);
     finalPrompt = expanded;
@@ -200,6 +207,7 @@ export default function ImageStudio() {
             ))}
           </div>
           <div className="grid grid-cols-4 gap-1.5">
+
             {(mode === "create" ? CREATE_FNS : EDIT_FNS).map((f: any) => {
               const active = mode === "create" ? createFn === f.id : editFn === f.id;
               return (
