@@ -146,6 +146,23 @@ const Index = () => {
                 );
               })}
             </div>
+            <div className="p-3 border-t border-border/40">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2 px-1">Tema</div>
+              <div className="grid grid-cols-2 gap-2">
+                {THEMES.map(t => {
+                  const on = theme === t.key;
+                  return (
+                    <button key={t.key} onClick={() => setTheme(t.key)}
+                      className={`flex items-center gap-2 p-2 rounded-lg border transition ${on ? "border-primary/60 bg-primary/10" : "border-border/40"}`}>
+                      <div className="flex gap-0.5">
+                        {t.swatch.map(c => <span key={c} className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />)}
+                      </div>
+                      <span className="text-[10px] font-medium">{t.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}
