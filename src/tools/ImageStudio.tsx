@@ -4,6 +4,7 @@ import {
   Sparkles, Download, Pencil, Upload, Rocket, Loader2, ImageIcon,
   Wand2, SlidersHorizontal, Palette, Ratio as RatioIcon, Type as TypeIcon,
   Sticker, MessageSquare, Plus, Target, Layers, Combine, Cpu,
+  Blocks, Film, Drama,
 } from "lucide-react";
 import { expandKnownTerms, getCachedEnhancement, setCachedEnhancement } from "@/lib/prompt-knowledge";
 
