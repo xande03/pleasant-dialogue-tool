@@ -136,11 +136,52 @@ export default function ImageStudio() {
   const showTwoImages = mode === "edit" && currentFn === "compose";
 
   useEffect(() => { try { localStorage.setItem("ai-studio:model", model); } catch {} }, [model]);
+  useEffect(() => { try { localStorage.setItem("ai-studio:livePreview", livePreview ? "1" : "0"); } catch {} }, [livePreview]);
+  useEffect(() => {
+    try { localStorage.setItem("ai-studio:history", JSON.stringify(history.slice(0, 24))); } catch {}
+  }, [history]);
+
+  // Live preview — debounced low-res render as user types
+  useEffect(() => {
+    if (!livePreview) { setLivePreviewUrl(null); return; }
+    const p = prompt.trim();
+    if (!p || p.length < 4) { setLivePreviewUrl(null); return; }
+    setLivePreviewLoading(true);
+    const t = setTimeout(() => {
+      const short = p.slice(0, 220);
+      const suffix = style ? `, ${style} style` : "";
+      const w = ratio.w >= ratio.h ? 384 : Math.round(384 * (ratio.w / ratio.h));
+      const h = ratio.h >= ratio.w ? 384 : Math.round(384 * (ratio.h / ratio.w));
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(short + suffix)}?width=${w}&height=${h}&nologo=true&seed=42&model=turbo&nofeed=true&enhance=false`;
+      preloadImage(url).then(() => setLivePreviewUrl(url)).catch(() => {}).finally(() => setLivePreviewLoading(false));
+    }, 750);
+    return () => { clearTimeout(t); setLivePreviewLoading(false); };
+  }, [prompt, style, ratio, livePreview]);
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (v: string) => void) => {
     const f = e.target.files?.[0]; if (!f) return;
     const r = new FileReader(); r.onload = ev => setter(ev.target?.result as string); r.readAsDataURL(f);
   };
+
+  const restoreEntry = (h: any, restoreAll = true) => {
+    setPrompt(h.prompt || "");
+    if (restoreAll) {
+      if (h.style !== undefined) setStyle(h.style);
+      if (h.mode) setMode(h.mode);
+      if (h.createFn) setCreateFn(h.createFn);
+      if (h.model) setModel(h.model);
+      if (h.ratio) {
+        const r = RATIOS.find(r => r.ratio === h.ratio);
+        if (r) setRatio(r);
+      }
+      if (h.url) setImgUrl(h.url);
+      toast.success("Geração restaurada");
+    } else {
+      toast.success("Prompt duplicado — ajuste e gere");
+    }
+  };
+  const removeEntry = (id: string) => setHistory(h => h.filter(x => x.id !== id));
+  const clearHistory = () => { setHistory([]); toast.message("Histórico limpo"); };
 
   const generate = useCallback(async () => {
     if (loading) return;
