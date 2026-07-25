@@ -16,20 +16,20 @@ type QrItem = {
   mime?: string;
   fileName?: string;
   qrDataUrl: string;   // PNG data URL of the QR
-  payload: string;     // original content (text/url or data:...;base64,)
-  qrPayload?: string;  // compact encrypted package actually embedded in the QR
-  qrScanUrl?: string;  // viewer URL embedded in the QR for scanners
+  payload: string;     // original content (text/url or tmpfiles URL)
+  qrPayload?: string;  // compact encrypted package actually embedded in the QR (text/url only)
+  qrScanUrl?: string;  // URL embedded in the QR for scanners (viewer or tmpfiles)
   encrypted?: boolean;
+  tmpUrl?: string;     // tmpfiles.org URL for uploaded media/files
+  previewUrl?: string; // local blob URL for inline preview
 };
 
 const STORAGE_KEY = "qr-tool:history:v1";
 const QR_PREFIX = "AISQR1";
-// QR v40 with EC "L" holds up to 2953 bytes binary — we use EC "L" for media
-// so images/music (as data URLs) can actually fit.
 const MAX_QR_CHARS = 2750;
-const IMG_TARGET_MAX = 1550; // target content size before encrypted wrapper overhead
-const FILE_MAX_BYTES = 1050; // hard cap for generic file payloads before encryption
-const MUSIC_MAX_BYTES = 1050; // hard cap for audio payload (base64 expands ~4/3)
+// tmpfiles.org limits uploads to 100 MB
+const TMPFILES_MAX_BYTES = 100 * 1024 * 1024;
+
 
 const load = (): QrItem[] => {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
@@ -97,37 +97,22 @@ const buildQrViewerUrl = (qrPayload: string) => {
   return `${basePath}#p=${qrPayload}`;
 };
 
-// Compress an image file to fit under ~IMG_TARGET_MAX chars (data URL)
-// Iteratively reduces max dimension and JPEG quality until it fits.
-const compressImageToFit = async (file: File, targetChars = IMG_TARGET_MAX): Promise<string> => {
-  const original = await readAsDataURL(file);
-  const img = await new Promise<HTMLImageElement>((res, rej) => {
-    const i = new Image();
-    i.onload = () => res(i);
-    i.onerror = () => rej(new Error("decode"));
-    i.src = original;
+// Upload a file to tmpfiles.org and return the public viewer URL.
+// tmpfiles returns https://tmpfiles.org/{id}/{name} which shows an inline preview page.
+const uploadToTmpfiles = async (file: File): Promise<string> => {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("https://tmpfiles.org/api/v1/upload", {
+    method: "POST",
+    body: form,
   });
-  const sizes = [320, 256, 200, 160, 128, 96, 80, 64, 48];
-  const qualities = [0.78, 0.68, 0.58, 0.48, 0.38, 0.28, 0.2];
-  let best = "";
-  for (const maxDim of sizes) {
-    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-    const w = Math.max(1, Math.round(img.width * scale));
-    const h = Math.max(1, Math.round(img.height * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("canvas");
-    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
-    ctx.drawImage(img, 0, 0, w, h);
-    for (const q of qualities) {
-      const url = canvas.toDataURL("image/jpeg", q);
-      if (url.length <= targetChars) return url;
-      best = url;
-    }
-  }
-  return best; // may still be > target; caller will validate
+  if (!res.ok) throw new Error(`Upload falhou (HTTP ${res.status})`);
+  const json = await res.json();
+  const url: string | undefined = json?.data?.url;
+  if (!url) throw new Error("Resposta inválida do tmpfiles.org");
+  return url;
 };
+
 
 export default function QrTool() {
   const [kind, setKind] = useState<QrKind>("text");
@@ -139,21 +124,19 @@ export default function QrTool() {
 
   useEffect(() => { save(history); }, [history]);
 
-  const generateFromPayload = async (payload: string, meta: Partial<QrItem>) => {
+  const generateEncryptedQr = async (payload: string, meta: Partial<QrItem>) => {
     setGenerating(true);
     try {
       const qrPayload = await packEncryptedPayload(payload, meta);
       const qrScanUrl = buildQrViewerUrl(qrPayload);
       if (qrScanUrl.length > MAX_QR_CHARS) {
-        toast.error(`Conteúdo muito grande para caber em um QR com visualizador (${fmtBytes(qrScanUrl.length)}). Limite prático: ~${fmtBytes(MAX_QR_CHARS)}. Para arquivos maiores use um link.`);
+        toast.error(`Conteúdo muito grande (${fmtBytes(qrScanUrl.length)}). Limite ~${fmtBytes(MAX_QR_CHARS)}.`);
         return;
       }
-      // Media (image/music/file) needs low EC to fit; text/url stays medium.
-      const isMedia = meta.kind === "image" || meta.kind === "music" || meta.kind === "file";
       const qrDataUrl = await QRCode.toDataURL(qrScanUrl, {
-        errorCorrectionLevel: isMedia ? "L" : "M",
+        errorCorrectionLevel: "M",
         margin: 2,
-        width: isMedia ? 1024 : 760,
+        width: 760,
         color: { dark: "#0e1024", light: "#ffffff" },
       });
       const item: QrItem = {
@@ -162,20 +145,56 @@ export default function QrTool() {
         kind: meta.kind || "text",
         label: meta.label || payload.slice(0, 40),
         size: payload.length,
-        mime: meta.mime,
-        fileName: meta.fileName,
         qrDataUrl,
         payload,
         qrPayload,
         qrScanUrl,
         encrypted: true,
       };
-      const next = [item, ...history].slice(0, 50);
-      setHistory(next);
+      setHistory(h => [item, ...h].slice(0, 50));
       setCurrent(item);
-      toast.success("QR code com visualizador criptografado gerado e salvo localmente!");
+      toast.success("QR criptografado gerado!");
     } catch (e: any) {
       toast.error(e?.message || "Falha ao gerar QR");
+    } finally { setGenerating(false); }
+  };
+
+  const generateTmpfilesQr = async (file: File, itemKind: QrKind) => {
+    setGenerating(true);
+    try {
+      if (file.size > TMPFILES_MAX_BYTES) {
+        toast.error(`Arquivo muito grande (${fmtBytes(file.size)}). Máx. ${fmtBytes(TMPFILES_MAX_BYTES)} no tmpfiles.org.`);
+        return;
+      }
+      toast.info("Enviando arquivo para tmpfiles.org…");
+      const tmpUrl = await uploadToTmpfiles(file);
+      const qrDataUrl = await QRCode.toDataURL(tmpUrl, {
+        errorCorrectionLevel: "M",
+        margin: 2,
+        width: 760,
+        color: { dark: "#0e1024", light: "#ffffff" },
+      });
+      const previewUrl = URL.createObjectURL(file);
+      const item: QrItem = {
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+        kind: itemKind,
+        label: file.name,
+        size: file.size,
+        mime: file.type,
+        fileName: file.name,
+        qrDataUrl,
+        payload: tmpUrl,
+        qrScanUrl: tmpUrl,
+        tmpUrl,
+        previewUrl,
+        encrypted: false,
+      };
+      setHistory(h => [item, ...h].slice(0, 50));
+      setCurrent(item);
+      toast.success("Arquivo hospedado e QR gerado! Válido por ~60 min no tmpfiles.org.");
+    } catch (e: any) {
+      toast.error(e?.message || "Falha no upload para tmpfiles.org");
     } finally { setGenerating(false); }
   };
 
@@ -183,7 +202,7 @@ export default function QrTool() {
     if (!text.trim()) { toast.error("Digite algum texto ou URL."); return; }
     const payload = text.trim();
     const isUrl = /^https?:\/\//i.test(payload);
-    generateFromPayload(payload, {
+    generateEncryptedQr(payload, {
       kind: isUrl ? "url" : "text",
       label: payload.slice(0, 60),
     });
@@ -193,64 +212,11 @@ export default function QrTool() {
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
-    try {
-      // Image kind: auto-compress to fit ~2KB (moderate visual size)
-      if (kind === "image") {
-        if (!f.type.startsWith("image/")) {
-          toast.error("Selecione um arquivo de imagem.");
-          return;
-        }
-        setGenerating(true);
-        const compressed = await compressImageToFit(f, IMG_TARGET_MAX);
-        setGenerating(false);
-        if (compressed.length > MAX_QR_CHARS) {
-          toast.error(`Não foi possível reduzir a imagem o suficiente (${fmtBytes(compressed.length)}). Tente uma imagem mais simples.`);
-          return;
-        }
-        await generateFromPayload(compressed, {
-          kind: "image",
-          label: f.name,
-          mime: "image/jpeg",
-          fileName: f.name.replace(/\.[^.]+$/, "") + ".jpg",
-        });
-        return;
-      }
-      // Music kind: hard limit — real songs won't fit; accept only short clips
-      if (kind === "music") {
-        if (!f.type.startsWith("audio/")) {
-          toast.error("Selecione um arquivo de áudio.");
-          return;
-        }
-        if (f.size > MUSIC_MAX_BYTES) {
-          toast.error(`Áudio muito grande (${fmtBytes(f.size)}). QR codes cabem no máx. ~${fmtBytes(MUSIC_MAX_BYTES)}. Use um clipe muito curto ou hospede o áudio e gere um QR do link.`);
-          return;
-        }
-        const dataUrl = await readAsDataURL(f);
-        await generateFromPayload(dataUrl, {
-          kind: "music",
-          label: f.name,
-          mime: f.type,
-          fileName: f.name,
-        });
-        return;
-      }
-      // Generic file
-      if (f.size > FILE_MAX_BYTES) {
-        toast.error(`Arquivo muito grande (${fmtBytes(f.size)}). QR criptografado aceita até ~${fmtBytes(FILE_MAX_BYTES)}. Para arquivos maiores, gere QR de um link.`);
-        return;
-      }
-      const dataUrl = await readAsDataURL(f);
-      await generateFromPayload(dataUrl, {
-        kind: "file",
-        label: f.name,
-        mime: f.type,
-        fileName: f.name,
-      });
-    } catch {
-      setGenerating(false);
-      toast.error("Falha ao ler arquivo.");
-    }
+    if (kind === "image" && !f.type.startsWith("image/")) { toast.error("Selecione uma imagem."); return; }
+    if (kind === "music" && !f.type.startsWith("audio/")) { toast.error("Selecione um áudio."); return; }
+    await generateTmpfilesQr(f, kind);
   };
+
 
   const remove = (id: string) => {
     setHistory(h => h.filter(i => i.id !== id));
@@ -264,13 +230,8 @@ export default function QrTool() {
     a.click();
   };
 
-  const downloadPayload = (item: QrItem) => {
-    if (item.kind !== "file" && item.kind !== "image" && item.kind !== "music") return;
-    const a = document.createElement("a");
-    a.href = item.payload;
-    a.download = item.fileName || "arquivo";
-    a.click();
-  };
+
+
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-4 lg:p-6 min-h-full w-full max-w-full overflow-x-hidden">
@@ -331,24 +292,21 @@ export default function QrTool() {
                   : kind === "music" ? <Music className="w-6 h-6 text-primary" />
                   : <Upload className="w-6 h-6 text-muted-foreground" />}
                 <div className="text-xs font-medium">
-                  {generating ? "Processando…"
+                  {generating ? "Enviando ao tmpfiles.org…"
                     : kind === "image" ? "Selecione uma imagem"
-                    : kind === "music" ? "Selecione um áudio curto"
+                    : kind === "music" ? "Selecione um áudio"
                     : "Selecione um arquivo"}
                 </div>
                 <div className="text-[10px] text-muted-foreground text-center">
-                  {kind === "image" ? <>JPG, PNG, WEBP…<br/>Será redimensionada automaticamente para caber no QR</>
-                    : kind === "music" ? <>MP3, OGG, WAV, M4A…<br/>Máx. ~{fmtBytes(MUSIC_MAX_BYTES)} (clipes muito curtos)</>
-                    : <>Imagem, música, PDF ou documento<br/>Máx. ~{fmtBytes(FILE_MAX_BYTES)} com criptografia</>}
+                  {kind === "image" ? <>JPG, PNG, WEBP, GIF…<br/>Enviada para tmpfiles.org (máx. {fmtBytes(TMPFILES_MAX_BYTES)})</>
+                    : kind === "music" ? <>MP3, OGG, WAV, M4A…<br/>Enviada para tmpfiles.org (máx. {fmtBytes(TMPFILES_MAX_BYTES)})</>
+                    : <>Imagem, música, PDF ou documento<br/>Enviado para tmpfiles.org (máx. {fmtBytes(TMPFILES_MAX_BYTES)})</>}
                 </div>
               </div>
               <div className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
-                {kind === "image"
-                  ? "ℹ️ Imagens são reduzidas (tamanho moderado, ~256px) e comprimidas em JPEG até caberem no QR."
-                  : kind === "music"
-                  ? "⚠️ QR codes cabem em poucos KB. Músicas completas não cabem — para faixas inteiras, hospede o arquivo e gere um QR do link."
-                  : "⚠️ QR codes têm capacidade limitada. Arquivos grandes serão rejeitados para preservar conteúdo + criptografia."}
+                ℹ️ O arquivo é enviado para <a href="https://tmpfiles.org" target="_blank" rel="noreferrer" className="text-primary underline">tmpfiles.org</a> (hospedagem temporária, ~60 minutos). O QR gerado abre a página do arquivo diretamente ao ser escaneado.
               </div>
+
             </>
           )}
         </section>
@@ -411,37 +369,48 @@ export default function QrTool() {
                 {current.kind.toUpperCase()} • {fmtBytes(current.size)}
                 {current.mime && ` • ${current.mime}`}
               </div>
-              {current.encrypted && (
+              {current.encrypted ? (
                 <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/60 px-2.5 py-1 text-[10px] text-muted-foreground">
                   <ShieldCheck className="w-3 h-3 text-accent" /> Ao escanear, abre o conteúdo no visualizador seguro
+                </div>
+              ) : current.tmpUrl && (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/60 px-2.5 py-1 text-[10px] text-muted-foreground max-w-full">
+                  <LinkIcon className="w-3 h-3 text-accent shrink-0" />
+                  <span className="truncate">Hospedado em tmpfiles.org (~60 min)</span>
                 </div>
               )}
             </div>
             {(current.kind === "image" || current.kind === "music" || current.kind === "file") && (
               <div className="w-full rounded-2xl border border-border/40 bg-secondary/40 p-3 text-center">
                 {current.kind === "image" ? (
-                  <img src={current.payload} alt={current.fileName || "Imagem embutida no QR"} className="mx-auto max-h-36 rounded-xl object-contain" />
+                  <img src={current.previewUrl || current.payload} alt={current.fileName || "Imagem"} className="mx-auto max-h-36 rounded-xl object-contain" />
                 ) : current.kind === "music" ? (
-                  <audio controls src={current.payload} className="w-full" />
+                  <audio controls src={current.previewUrl || current.payload} className="w-full" />
                 ) : (
                   <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                    <FileIcon className="w-4 h-4 text-primary" /> Arquivo embutido pronto para download
+                    <FileIcon className="w-4 h-4 text-primary" /> {current.fileName || "Arquivo hospedado"}
                   </div>
+                )}
+                {current.tmpUrl && (
+                  <a href={current.tmpUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-[11px] text-primary underline break-all">
+                    {current.tmpUrl}
+                  </a>
                 )}
               </div>
             )}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap justify-center">
               <button onClick={() => downloadQr(current)}
                 className="gradient-aurora text-primary-foreground font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 glow-primary">
                 <Download className="w-4 h-4" /> Baixar QR (PNG)
               </button>
-              {(current.kind === "file" || current.kind === "image" || current.kind === "music") && (
-                <button onClick={() => downloadPayload(current)}
+              {current.tmpUrl && (
+                <a href={current.tmpUrl} target="_blank" rel="noreferrer"
                   className="glass-strong font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 hover:border-primary">
-                  <Download className="w-4 h-4" /> Baixar arquivo
-                </button>
+                  <LinkIcon className="w-4 h-4" /> Abrir no tmpfiles
+                </a>
               )}
             </div>
+
           </div>
         )}
       </section>
