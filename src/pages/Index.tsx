@@ -164,6 +164,14 @@ const Index = () => {
             </div>
           </div>
           <div className="hidden lg:flex items-center gap-2.5">
+            <button
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-xl ink-border bg-background flex items-center justify-center brutal-hover"
+              aria-label="Alternar tema"
+              title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" strokeWidth={2} /> : <Moon className="w-4 h-4" strokeWidth={2} />}
+            </button>
             <div className="px-3 py-1.5 rounded-full ink-border bg-background text-[10.5px] font-semibold tracking-wide text-muted-foreground uppercase">
               v3 · Premium
             </div>
