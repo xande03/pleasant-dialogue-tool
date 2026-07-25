@@ -119,6 +119,14 @@ export default function ImageStudio() {
   const [preview1, setPreview1] = useState<string | null>(null);
   const [preview2, setPreview2] = useState<string | null>(null);
   const [styleExpanded, setStyleExpanded] = useState(false);
+  const [history, setHistory] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem("ai-studio:history") || "[]"); } catch { return []; }
+  });
+  const [livePreview, setLivePreview] = useState<boolean>(() => {
+    try { return localStorage.getItem("ai-studio:livePreview") === "1"; } catch { return false; }
+  });
+  const [livePreviewUrl, setLivePreviewUrl] = useState<string | null>(null);
+  const [livePreviewLoading, setLivePreviewLoading] = useState(false);
   const fileMain = useRef<HTMLInputElement>(null);
   const file1 = useRef<HTMLInputElement>(null);
   const file2 = useRef<HTMLInputElement>(null);
