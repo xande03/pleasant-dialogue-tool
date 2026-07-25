@@ -113,7 +113,13 @@ const Index = () => {
           </div>
           <span className="font-display text-[13px] truncate">{currentTool.label}</span>
         </div>
-        <div className="w-10" />
+        <button
+          onClick={toggleTheme}
+          className="w-10 h-10 rounded-xl ink-border bg-background flex items-center justify-center brutal-hover"
+          aria-label="Alternar tema"
+        >
+          {theme === "dark" ? <Sun className="w-4 h-4" strokeWidth={2} /> : <Moon className="w-4 h-4" strokeWidth={2} />}
+        </button>
       </header>
 
       {/* Mobile drawer */}
