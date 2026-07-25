@@ -183,9 +183,36 @@ export default function ImageStudio() {
   const removeEntry = (id: string) => setHistory(h => h.filter(x => x.id !== id));
   const clearHistory = () => { setHistory([]); toast.message("Histórico limpo"); };
 
+  const uploadToTmpfiles = async (dataUrl: string): Promise<string | null> => {
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const fd = new FormData();
+      fd.append("file", blob, "upload.png");
+      const r = await fetch("https://tmpfiles.org/api/v1/upload", { method: "POST", body: fd });
+      const d = await r.json();
+      const link: string | undefined = d?.data?.url;
+      if (!link) return null;
+      // convert to direct download URL
+      return link.replace("tmpfiles.org/", "tmpfiles.org/dl/");
+    } catch { return null; }
+  };
+
   const generate = useCallback(async () => {
     if (loading) return;
     if (!prompt.trim()) { toast.error("Digite um prompt."); return; }
+
+    // Edit-mode validation
+    if (mode === "edit") {
+      if (showTwoImages && (!preview1 || !preview2)) {
+        toast.error("Envie as 2 imagens para unir.");
+        return;
+      }
+      if (!showTwoImages && !previewMain) {
+        toast.error("Envie uma imagem para editar.");
+        return;
+      }
+    }
+
     setLoading(true); setImgUrl(null);
     // 1) Base = user's prompt (preserved literally)
     const userPrompt = prompt.trim();
@@ -215,11 +242,34 @@ export default function ImageStudio() {
         if (createFn === "lego") finalPrompt += ", built entirely from LEGO bricks, official LEGO minifigure aesthetic, plastic studs visible, sharp macro photography, soft studio lighting, playful diorama";
         if (createFn === "poster") finalPrompt += ", cinematic movie poster, dramatic key art composition, bold typography space at bottom, moody lighting, high contrast, teal and orange grading, IMAX 35mm film aesthetic";
         if (createFn === "anime") finalPrompt += ", high quality anime illustration, cel shaded, expressive eyes, Studio Ghibli meets Makoto Shinkai lighting, vibrant color palette, detailed background, 2D key visual";
+      } else {
+        // edit-mode suffixes — instruct kontext model
+        if (editFn === "add-remove") finalPrompt = `Edit the reference image: ${finalPrompt}. Preserve original composition, lighting and subject identity. Only add or remove what is requested. Seamless photorealistic integration.`;
+        if (editFn === "retouch") finalPrompt = `Retouch the reference image: ${finalPrompt}. Keep identity, pose and framing intact. Improve details, lighting and color only where requested. Photorealistic, natural finish.`;
+        if (editFn === "style") finalPrompt = `Restyle the reference image while keeping subject, pose and composition: ${finalPrompt}. Apply the new visual style consistently across the whole frame.`;
+        if (editFn === "compose") finalPrompt = `Combine and blend the two reference images into one cohesive scene: ${finalPrompt}. Match lighting, perspective and color palette for a seamless composite.`;
+      }
+
+      // 5) Upload references for edit mode (image-to-image via kontext)
+      let imageParam = "";
+      let useModel = model;
+      if (mode === "edit") {
+        toast.message("Enviando imagem de referência…");
+        if (showTwoImages) {
+          const [u1, u2] = await Promise.all([uploadToTmpfiles(preview1!), uploadToTmpfiles(preview2!)]);
+          if (!u1 || !u2) { toast.error("Falha ao enviar imagens de referência."); setLoading(false); return; }
+          imageParam = `&image=${encodeURIComponent(u1)}&image=${encodeURIComponent(u2)}`;
+        } else {
+          const u = await uploadToTmpfiles(previewMain!);
+          if (!u) { toast.error("Falha ao enviar imagem de referência."); setLoading(false); return; }
+          imageParam = `&image=${encodeURIComponent(u)}`;
+        }
+        useModel = "kontext"; // image-to-image capable
       }
 
       const seed = Math.floor(Math.random() * 1_000_000);
       finalPrompt += `, ${ratio.w}x${ratio.h} ${ratio.ratio} aspect ratio composition, accurate real-world detail, high fidelity`;
-      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=${encodeURIComponent(model)}&nofeed=true&enhance=false`;
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=${ratio.w}&height=${ratio.h}&nologo=true&seed=${seed}&model=${encodeURIComponent(useModel)}&nofeed=true&enhance=false${imageParam}`;
 
       await preloadImage(url);
       setImgUrl(url);
@@ -227,10 +277,10 @@ export default function ImageStudio() {
         { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, prompt: userPrompt, style, mode, createFn, model, ratio: ratio.ratio, url, ts: Date.now() },
         ...prev,
       ].slice(0, 24));
-      toast.success("Imagem gerada!");
+      toast.success(mode === "edit" ? "Edição concluída!" : "Imagem gerada!");
     } catch { toast.error("Erro na geração."); }
     finally { setLoading(false); }
-  }, [loading, prompt, style, mode, createFn, ratio, model]);
+  }, [loading, prompt, style, mode, createFn, editFn, ratio, model, previewMain, preview1, preview2, showTwoImages]);
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 p-3 sm:p-5 lg:p-6 xl:p-8 min-h-screen w-full max-w-full overflow-x-hidden">
