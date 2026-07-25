@@ -207,6 +207,7 @@ export default function ImageStudio() {
             ))}
           </div>
           <div className="grid grid-cols-4 gap-1.5">
+
             {(mode === "create" ? CREATE_FNS : EDIT_FNS).map((f: any) => {
               const active = mode === "create" ? createFn === f.id : editFn === f.id;
               return (
