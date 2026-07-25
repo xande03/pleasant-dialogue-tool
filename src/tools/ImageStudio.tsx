@@ -5,6 +5,7 @@ import {
   Wand2, SlidersHorizontal, Palette, Ratio as RatioIcon, Type as TypeIcon,
   Sticker, MessageSquare, Plus, Target, Layers, Combine, Cpu,
   Blocks, Film, Drama, ChevronDown, ChevronUp,
+  History as HistoryIcon, Copy, Trash2, Eye, EyeOff, RotateCcw,
 } from "lucide-react";
 import { expandKnownTerms, getCachedEnhancement, setCachedEnhancement } from "@/lib/prompt-knowledge";
 
