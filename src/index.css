@@ -6,36 +6,36 @@
 
 @layer base {
   :root {
-    /* Glass Aurora palette */
-    --background: 232 47% 11%;         /* #0e1024 base */
-    --foreground: 220 30% 96%;
+    /* Glass Aurora palette (default) */
+    --background: 232 47% 9%;          /* deeper for stronger contrast */
+    --foreground: 220 30% 97%;
 
-    --card: 224 40% 14%;               /* deep navy card */
-    --card-foreground: 220 30% 96%;
+    --card: 224 40% 13%;
+    --card-foreground: 220 30% 97%;
 
-    --popover: 224 40% 14%;
-    --popover-foreground: 220 30% 96%;
+    --popover: 224 40% 13%;
+    --popover-foreground: 220 30% 97%;
 
-    --primary: 259 89% 74%;            /* aurora violet #a78bfa */
-    --primary-foreground: 232 47% 11%;
+    --primary: 259 89% 74%;            /* aurora violet */
+    --primary-foreground: 232 47% 9%;
     --primary-glow: 259 100% 82%;
 
     --secondary: 223 39% 18%;
-    --secondary-foreground: 220 30% 96%;
+    --secondary-foreground: 220 30% 97%;
 
-    --muted: 223 39% 18%;
-    --muted-foreground: 220 15% 65%;
+    --muted: 223 35% 20%;
+    --muted-foreground: 220 20% 74%;   /* raised for WCAG AA on dark cards */
 
-    --accent: 152 76% 58%;             /* aurora mint #4ade80 */
-    --accent-foreground: 232 47% 11%;
+    --accent: 152 76% 58%;             /* aurora mint */
+    --accent-foreground: 232 47% 9%;
 
     --destructive: 0 84% 62%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 152 76% 58%;
 
-    --border: 224 30% 22%;
-    --input: 224 30% 22%;
+    --border: 224 28% 24%;             /* raised opacity edge */
+    --input: 224 28% 24%;
     --ring: 259 89% 74%;
 
     --radius: 1rem;
@@ -44,6 +44,59 @@
     --gradient-surface: linear-gradient(160deg, hsl(224 40% 14% / 0.92), hsl(232 47% 11% / 0.88));
     --shadow-glow: 0 8px 40px -8px hsl(259 89% 74% / 0.45);
     --shadow-mint: 0 8px 40px -12px hsl(152 76% 58% / 0.4);
+
+    --bg-radial-1: 259 89% 74%;
+    --bg-radial-2: 200 90% 62%;
+    --bg-radial-3: 152 76% 58%;
+    --bg-radial-a1: 0.22;
+    --bg-radial-a2: 0.18;
+    --bg-radial-a3: 0.16;
+  }
+
+  [data-theme="noir"] {
+    /* Noir & Gold palette */
+    --background: 0 0% 5%;
+    --foreground: 40 30% 96%;
+
+    --card: 0 0% 9%;
+    --card-foreground: 40 30% 96%;
+
+    --popover: 0 0% 9%;
+    --popover-foreground: 40 30% 96%;
+
+    --primary: 43 55% 55%;             /* gold #c9a84c */
+    --primary-foreground: 0 0% 6%;
+    --primary-glow: 43 75% 68%;
+
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 40 30% 96%;
+
+    --muted: 0 0% 14%;
+    --muted-foreground: 40 12% 72%;
+
+    --accent: 43 75% 68%;              /* lighter gold */
+    --accent-foreground: 0 0% 6%;
+
+    --destructive: 0 74% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 55% 55%;
+
+    --border: 40 10% 22%;
+    --input: 40 10% 22%;
+    --ring: 43 55% 55%;
+
+    --gradient-aurora: linear-gradient(135deg, hsl(43 55% 55%) 0%, hsl(43 75% 68%) 55%, hsl(40 90% 82%) 100%);
+    --gradient-surface: linear-gradient(160deg, hsl(0 0% 10% / 0.94), hsl(0 0% 5% / 0.9));
+    --shadow-glow: 0 8px 40px -8px hsl(43 65% 55% / 0.45);
+    --shadow-mint: 0 8px 40px -12px hsl(43 75% 68% / 0.35);
+
+    --bg-radial-1: 43 65% 45%;
+    --bg-radial-2: 40 80% 55%;
+    --bg-radial-3: 30 40% 20%;
+    --bg-radial-a1: 0.18;
+    --bg-radial-a2: 0.12;
+    --bg-radial-a3: 0.25;
   }
 }
 
@@ -55,9 +108,9 @@
     @apply text-foreground antialiased;
     font-family: 'DM Sans', system-ui, sans-serif;
     background:
-      radial-gradient(ellipse 80% 60% at 15% -10%, hsl(259 89% 74% / 0.22), transparent 60%),
-      radial-gradient(ellipse 70% 50% at 100% 10%, hsl(200 90% 62% / 0.18), transparent 60%),
-      radial-gradient(ellipse 90% 60% at 50% 110%, hsl(152 76% 58% / 0.16), transparent 60%),
+      radial-gradient(ellipse 80% 60% at 15% -10%, hsl(var(--bg-radial-1) / var(--bg-radial-a1)), transparent 60%),
+      radial-gradient(ellipse 70% 50% at 100% 10%, hsl(var(--bg-radial-2) / var(--bg-radial-a2)), transparent 60%),
+      radial-gradient(ellipse 90% 60% at 50% 110%, hsl(var(--bg-radial-3) / var(--bg-radial-a3)), transparent 60%),
       hsl(var(--background));
     background-attachment: fixed;
   }
