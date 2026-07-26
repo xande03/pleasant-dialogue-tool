@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
-import { Sparkles, QrCode, FileText, Menu, X, Sun, Moon } from "lucide-react";
+import { Sparkles, QrCode, FileText, Menu, X, Sun, Moon, MessageCircle } from "lucide-react";
 import ImageStudio from "@/tools/ImageStudio";
 import QrTool from "@/tools/QrTool";
 import PdfTool from "@/tools/PdfTool";
+import ChatTool from "@/tools/ChatTool";
 
-type ToolKey = "image" | "qr" | "pdf";
+type ToolKey = "image" | "qr" | "pdf" | "chat";
 type Theme = "light" | "dark";
 
 const TOOLS: { key: ToolKey; Icon: typeof Sparkles; label: string; subtitle: string }[] = [
-  { key: "image", Icon: Sparkles, label: "Image Studio", subtitle: "AI generation" },
-  { key: "qr",    Icon: QrCode,   label: "QR Tool",      subtitle: "Codes & uploads" },
-  { key: "pdf",   Icon: FileText, label: "PDF Tool",     subtitle: "PDF ↔ DOCX" },
+  { key: "image", Icon: Sparkles,      label: "Image Studio", subtitle: "AI generation" },
+  { key: "chat",  Icon: MessageCircle, label: "Chat IA",      subtitle: "Conversa livre" },
+  { key: "qr",    Icon: QrCode,        label: "QR Tool",      subtitle: "Codes & uploads" },
+  { key: "pdf",   Icon: FileText,      label: "PDF Tool",     subtitle: "PDF ↔ DOCX" },
 ];
 
 const Index = () => {
@@ -36,7 +38,7 @@ const Index = () => {
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
   const currentTool = TOOLS.find(t => t.key === active)!;
-  const Tool = active === "image" ? ImageStudio : active === "qr" ? QrTool : PdfTool;
+  const Tool = active === "image" ? ImageStudio : active === "chat" ? ChatTool : active === "qr" ? QrTool : PdfTool;
 
   const NavItem = ({ t, onClick }: { t: typeof TOOLS[number]; onClick?: () => void }) => {
     const on = active === t.key;
