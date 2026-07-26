@@ -1,11 +1,16 @@
-// ⚠️ Chave embutida no bundle — visível a qualquer usuário que inspecionar.
-// Foi ativada direto no código a pedido explícito para uso público.
-const GROQ_KEY = "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";
+// Chave lida de variável de ambiente (.env → VITE_GROQ_API_KEY).
+// ⚠️ Como o app é 100% frontend, variáveis VITE_* são embutidas no bundle
+// e ficam visíveis a quem inspecionar. Para privacidade real, mover para
+// um edge function como proxy.
+const GROQ_KEY = (import.meta.env.VITE_GROQ_API_KEY as string | undefined) ?? "";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+
 
 export type ChatMsg = { role: "system" | "user" | "assistant"; content: string };
 
 export async function* streamGroq(messages: ChatMsg[], model = "llama-3.3-70b-versatile") {
+  if (!GROQ_KEY) throw new Error("VITE_GROQ_API_KEY não configurada no .env");
+
   const res = await fetch(GROQ_URL, {
     method: "POST",
     headers: {
