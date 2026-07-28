@@ -467,15 +467,41 @@ export default function ImageStudio() {
           </button>
         </Card>
 
-        <Card icon={HistoryIcon} title="Histórico" subtitle={history.length ? `${history.length} geração${history.length > 1 ? "es" : ""}` : "Nenhuma ainda"}>
-          {history.length === 0 ? (
+        <Card icon={UserIcon} title="Sessão" subtitle={currentSession?.name || "—"}>
+          <select
+            value={sessionId}
+            onChange={e => setSessionId(e.target.value)}
+            className="w-full glass rounded-lg px-2 py-2 text-[12px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            {sessions.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          <div className="grid grid-cols-3 gap-1.5 mt-2">
+            <button onClick={addSession} className="glass rounded-lg py-1.5 text-[10.5px] font-semibold flex items-center justify-center gap-1 hover:border-primary/40 transition">
+              <Plus className="w-3 h-3" /> Nova
+            </button>
+            <button onClick={renameSession} className="glass rounded-lg py-1.5 text-[10.5px] font-semibold flex items-center justify-center gap-1 hover:border-primary/40 transition">
+              <Pencil className="w-3 h-3" /> Renomear
+            </button>
+            <button onClick={deleteSession} className="glass rounded-lg py-1.5 text-[10.5px] font-semibold flex items-center justify-center gap-1 hover:border-destructive/40 hover:text-destructive transition">
+              <Trash2 className="w-3 h-3" /> Excluir
+            </button>
+          </div>
+          <div className="mt-2 text-[10.5px] text-muted-foreground">
+            {sessionHistory.length} imagem{sessionHistory.length === 1 ? "" : "ns"} nesta sessão.
+          </div>
+        </Card>
+
+        <Card icon={HistoryIcon} title="Histórico" subtitle={sessionHistory.length ? `${sessionHistory.length} geração${sessionHistory.length > 1 ? "es" : ""}` : "Nenhuma ainda"}>
+          {sessionHistory.length === 0 ? (
             <div className="text-[11px] text-muted-foreground py-3 text-center">
-              Suas imagens geradas aparecerão aqui para iterar rapidamente.
+              Suas imagens geradas nesta sessão aparecerão aqui.
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-3 gap-1.5 max-h-[220px] overflow-y-auto scrollbar-thin pr-1">
-                {history.map(h => (
+              <div className="grid grid-cols-3 gap-1.5 max-h-[240px] overflow-y-auto scrollbar-thin pr-1">
+                {sessionHistory.map((h, i) => (
                   <div key={h.id} className="relative group aspect-square rounded-lg overflow-hidden ink-border bg-secondary">
                     <img src={h.url} alt={h.prompt} loading="lazy" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-foreground/70 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-1 p-1">
@@ -494,6 +520,13 @@ export default function ImageStudio() {
                         <Copy className="w-2.5 h-2.5" /> Duplicar
                       </button>
                       <button
+                        onClick={() => downloadAsPng(h.url, `${slugify(currentSession?.name || "sessao")}-${sessionHistory.length - i}-${slugify(h.prompt || "img")}`)}
+                        title="Baixar PNG"
+                        className="w-full text-[9.5px] font-semibold py-1 rounded bg-background text-foreground flex items-center justify-center gap-1 hover:bg-primary hover:text-primary-foreground"
+                      >
+                        <Download className="w-2.5 h-2.5" /> PNG
+                      </button>
+                      <button
                         onClick={() => removeEntry(h.id)}
                         title="Remover"
                         className="w-full text-[9.5px] font-semibold py-1 rounded bg-destructive text-destructive-foreground flex items-center justify-center gap-1"
@@ -504,15 +537,24 @@ export default function ImageStudio() {
                   </div>
                 ))}
               </div>
-              <button
-                onClick={clearHistory}
-                className="mt-2 w-full glass rounded-lg py-1.5 text-[11px] font-semibold flex items-center justify-center gap-1 hover:border-destructive/40 hover:text-destructive transition"
-              >
-                <Trash2 className="w-3 h-3" /> Limpar histórico
-              </button>
+              <div className="grid grid-cols-2 gap-1.5 mt-2">
+                <button
+                  onClick={downloadAllSession}
+                  className="glass rounded-lg py-1.5 text-[11px] font-semibold flex items-center justify-center gap-1 hover:border-primary/40 hover:text-primary transition"
+                >
+                  <FolderDown className="w-3 h-3" /> Baixar todas
+                </button>
+                <button
+                  onClick={clearHistory}
+                  className="glass rounded-lg py-1.5 text-[11px] font-semibold flex items-center justify-center gap-1 hover:border-destructive/40 hover:text-destructive transition"
+                >
+                  <Trash2 className="w-3 h-3" /> Limpar tudo
+                </button>
+              </div>
             </>
           )}
         </Card>
+
 
         <button
           onClick={() => setLivePreview(v => !v)}
