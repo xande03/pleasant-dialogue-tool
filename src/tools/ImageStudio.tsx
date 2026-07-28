@@ -6,6 +6,7 @@ import {
   Sticker, MessageSquare, Plus, Target, Layers, Combine, Cpu,
   Blocks, Film, Drama, ChevronDown, ChevronUp,
   History as HistoryIcon, Copy, Trash2, Eye, EyeOff, RotateCcw,
+  User as UserIcon, FolderDown, Check,
 } from "lucide-react";
 import { expandKnownTerms, getCachedEnhancement, setCachedEnhancement } from "@/lib/prompt-knowledge";
 
