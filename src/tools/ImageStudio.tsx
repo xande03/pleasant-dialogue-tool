@@ -89,6 +89,47 @@ const preloadImage = (url: string) => new Promise<string>((res, rej) => {
   img.onload = () => res(url); img.onerror = () => rej(new Error("fail")); img.src = url;
 });
 
+// Force-download any image URL as a real PNG (re-encodes via canvas so the
+// browser saves a .png file instead of opening the remote URL in a new tab).
+async function downloadAsPng(url: string, filename: string) {
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    const blob = await res.blob();
+    const bmp = await createImageBitmap(blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = bmp.width; canvas.height = bmp.height;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(bmp, 0, 0);
+    const pngBlob: Blob = await new Promise(r => canvas.toBlob(b => r(b as Blob), "image/png"));
+    const objUrl = URL.createObjectURL(pngBlob);
+    const a = document.createElement("a");
+    a.href = objUrl; a.download = filename.endsWith(".png") ? filename : `${filename}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+  } catch {
+    // fallback: open in new tab
+    window.open(url, "_blank");
+  }
+}
+
+const slugify = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "imagem";
+
+type Session = { id: string; name: string; createdAt: number };
+const SESSIONS_KEY = "ai-studio:sessions";
+const CURRENT_SESSION_KEY = "ai-studio:currentSession";
+
+function loadSessions(): Session[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SESSIONS_KEY) || "null");
+    if (Array.isArray(raw) && raw.length) return raw;
+  } catch {}
+  const def: Session = { id: "default", name: "Sessão padrão", createdAt: Date.now() };
+  return [def];
+}
+
+
 const Card = ({ icon: Icon, title, subtitle, children }: any) => (
   <section className="glass rounded-2xl p-4 border border-border/40">
     <div className="flex items-center gap-2.5 mb-3">
