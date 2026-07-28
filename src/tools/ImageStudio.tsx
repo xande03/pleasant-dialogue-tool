@@ -6,6 +6,7 @@ import {
   Sticker, MessageSquare, Plus, Target, Layers, Combine, Cpu,
   Blocks, Film, Drama, ChevronDown, ChevronUp,
   History as HistoryIcon, Copy, Trash2, Eye, EyeOff, RotateCcw,
+  User as UserIcon, FolderDown,
 } from "lucide-react";
 import { expandKnownTerms, getCachedEnhancement, setCachedEnhancement } from "@/lib/prompt-knowledge";
 
@@ -88,6 +89,47 @@ const preloadImage = (url: string) => new Promise<string>((res, rej) => {
   img.onload = () => res(url); img.onerror = () => rej(new Error("fail")); img.src = url;
 });
 
+// Force-download any image URL as a real PNG (re-encodes via canvas so the
+// browser saves a .png file instead of opening the remote URL in a new tab).
+async function downloadAsPng(url: string, filename: string) {
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    const blob = await res.blob();
+    const bmp = await createImageBitmap(blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = bmp.width; canvas.height = bmp.height;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(bmp, 0, 0);
+    const pngBlob: Blob = await new Promise(r => canvas.toBlob(b => r(b as Blob), "image/png"));
+    const objUrl = URL.createObjectURL(pngBlob);
+    const a = document.createElement("a");
+    a.href = objUrl; a.download = filename.endsWith(".png") ? filename : `${filename}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+  } catch {
+    // fallback: open in new tab
+    window.open(url, "_blank");
+  }
+}
+
+const slugify = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "imagem";
+
+type Session = { id: string; name: string; createdAt: number };
+const SESSIONS_KEY = "ai-studio:sessions";
+const CURRENT_SESSION_KEY = "ai-studio:currentSession";
+
+function loadSessions(): Session[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SESSIONS_KEY) || "null");
+    if (Array.isArray(raw) && raw.length) return raw;
+  } catch {}
+  const def: Session = { id: "default", name: "Sessão padrão", createdAt: Date.now() };
+  return [def];
+}
+
+
 const Card = ({ icon: Icon, title, subtitle, children }: any) => (
   <section className="glass rounded-2xl p-4 border border-border/40">
     <div className="flex items-center gap-2.5 mb-3">
@@ -119,6 +161,10 @@ export default function ImageStudio() {
   const [preview1, setPreview1] = useState<string | null>(null);
   const [preview2, setPreview2] = useState<string | null>(null);
   const [styleExpanded, setStyleExpanded] = useState(false);
+  const [sessions, setSessions] = useState<Session[]>(loadSessions);
+  const [sessionId, setSessionId] = useState<string>(() => {
+    try { return localStorage.getItem(CURRENT_SESSION_KEY) || "default"; } catch { return "default"; }
+  });
   const [history, setHistory] = useState<any[]>(() => {
     try { return JSON.parse(localStorage.getItem("ai-studio:history") || "[]"); } catch { return []; }
   });
@@ -138,8 +184,51 @@ export default function ImageStudio() {
   useEffect(() => { try { localStorage.setItem("ai-studio:model", model); } catch {} }, [model]);
   useEffect(() => { try { localStorage.setItem("ai-studio:livePreview", livePreview ? "1" : "0"); } catch {} }, [livePreview]);
   useEffect(() => {
-    try { localStorage.setItem("ai-studio:history", JSON.stringify(history.slice(0, 24))); } catch {}
+    // Keep more history now that entries are scoped per session
+    try { localStorage.setItem("ai-studio:history", JSON.stringify(history.slice(0, 200))); } catch {}
   }, [history]);
+  useEffect(() => { try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); } catch {} }, [sessions]);
+  useEffect(() => { try { localStorage.setItem(CURRENT_SESSION_KEY, sessionId); } catch {} }, [sessionId]);
+
+  const sessionHistory = useMemo(
+    () => history.filter(h => (h.session || "default") === sessionId),
+    [history, sessionId],
+  );
+  const currentSession = sessions.find(s => s.id === sessionId) || sessions[0];
+
+  const addSession = () => {
+    const name = window.prompt("Nome da nova sessão:", `Sessão ${sessions.length + 1}`);
+    if (!name || !name.trim()) return;
+    const s: Session = { id: `s-${Date.now().toString(36)}`, name: name.trim(), createdAt: Date.now() };
+    setSessions(prev => [...prev, s]);
+    setSessionId(s.id);
+    toast.success(`Sessão "${s.name}" criada`);
+  };
+  const renameSession = () => {
+    if (!currentSession) return;
+    const name = window.prompt("Renomear sessão:", currentSession.name);
+    if (!name || !name.trim()) return;
+    setSessions(prev => prev.map(s => s.id === currentSession.id ? { ...s, name: name.trim() } : s));
+  };
+  const deleteSession = () => {
+    if (!currentSession || sessions.length <= 1) { toast.error("Mantenha ao menos uma sessão."); return; }
+    if (!window.confirm(`Excluir a sessão "${currentSession.name}" e todo o seu histórico?`)) return;
+    setHistory(prev => prev.filter(h => (h.session || "default") !== currentSession.id));
+    const remaining = sessions.filter(s => s.id !== currentSession.id);
+    setSessions(remaining);
+    setSessionId(remaining[0].id);
+  };
+  const downloadAllSession = async () => {
+    if (!sessionHistory.length) { toast.error("Sem imagens nesta sessão."); return; }
+    toast.message(`Baixando ${sessionHistory.length} imagens…`);
+    for (let i = 0; i < sessionHistory.length; i++) {
+      const h = sessionHistory[i];
+      await downloadAsPng(h.url, `${slugify(currentSession?.name || "sessao")}-${i + 1}-${slugify(h.prompt || "img")}`);
+      await new Promise(r => setTimeout(r, 350));
+    }
+    toast.success("Download concluído");
+  };
+
 
   // Live preview — debounced low-res render as user types
   useEffect(() => {
@@ -274,13 +363,13 @@ export default function ImageStudio() {
       await preloadImage(url);
       setImgUrl(url);
       setHistory(prev => [
-        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, prompt: userPrompt, style, mode, createFn, model, ratio: ratio.ratio, url, ts: Date.now() },
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, prompt: userPrompt, style, mode, createFn, model, ratio: ratio.ratio, url, ts: Date.now(), session: sessionId },
         ...prev,
-      ].slice(0, 24));
+      ].slice(0, 200));
       toast.success(mode === "edit" ? "Edição concluída!" : "Imagem gerada!");
     } catch { toast.error("Erro na geração."); }
     finally { setLoading(false); }
-  }, [loading, prompt, style, mode, createFn, editFn, ratio, model, previewMain, preview1, preview2, showTwoImages]);
+  }, [loading, prompt, style, mode, createFn, editFn, ratio, model, previewMain, preview1, preview2, showTwoImages, sessionId]);
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 p-3 sm:p-5 lg:p-6 xl:p-8 min-h-screen w-full max-w-full overflow-x-hidden">
@@ -378,15 +467,41 @@ export default function ImageStudio() {
           </button>
         </Card>
 
-        <Card icon={HistoryIcon} title="Histórico" subtitle={history.length ? `${history.length} geração${history.length > 1 ? "es" : ""}` : "Nenhuma ainda"}>
-          {history.length === 0 ? (
+        <Card icon={UserIcon} title="Sessão" subtitle={currentSession?.name || "—"}>
+          <select
+            value={sessionId}
+            onChange={e => setSessionId(e.target.value)}
+            className="w-full glass rounded-lg px-2 py-2 text-[12px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            {sessions.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          <div className="grid grid-cols-3 gap-1.5 mt-2">
+            <button onClick={addSession} className="glass rounded-lg py-1.5 text-[10.5px] font-semibold flex items-center justify-center gap-1 hover:border-primary/40 transition">
+              <Plus className="w-3 h-3" /> Nova
+            </button>
+            <button onClick={renameSession} className="glass rounded-lg py-1.5 text-[10.5px] font-semibold flex items-center justify-center gap-1 hover:border-primary/40 transition">
+              <Pencil className="w-3 h-3" /> Renomear
+            </button>
+            <button onClick={deleteSession} className="glass rounded-lg py-1.5 text-[10.5px] font-semibold flex items-center justify-center gap-1 hover:border-destructive/40 hover:text-destructive transition">
+              <Trash2 className="w-3 h-3" /> Excluir
+            </button>
+          </div>
+          <div className="mt-2 text-[10.5px] text-muted-foreground">
+            {sessionHistory.length} imagem{sessionHistory.length === 1 ? "" : "ns"} nesta sessão.
+          </div>
+        </Card>
+
+        <Card icon={HistoryIcon} title="Histórico" subtitle={sessionHistory.length ? `${sessionHistory.length} geração${sessionHistory.length > 1 ? "es" : ""}` : "Nenhuma ainda"}>
+          {sessionHistory.length === 0 ? (
             <div className="text-[11px] text-muted-foreground py-3 text-center">
-              Suas imagens geradas aparecerão aqui para iterar rapidamente.
+              Suas imagens geradas nesta sessão aparecerão aqui.
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-3 gap-1.5 max-h-[220px] overflow-y-auto scrollbar-thin pr-1">
-                {history.map(h => (
+              <div className="grid grid-cols-3 gap-1.5 max-h-[240px] overflow-y-auto scrollbar-thin pr-1">
+                {sessionHistory.map((h, i) => (
                   <div key={h.id} className="relative group aspect-square rounded-lg overflow-hidden ink-border bg-secondary">
                     <img src={h.url} alt={h.prompt} loading="lazy" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-foreground/70 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-1 p-1">
@@ -405,6 +520,13 @@ export default function ImageStudio() {
                         <Copy className="w-2.5 h-2.5" /> Duplicar
                       </button>
                       <button
+                        onClick={() => downloadAsPng(h.url, `${slugify(currentSession?.name || "sessao")}-${sessionHistory.length - i}-${slugify(h.prompt || "img")}`)}
+                        title="Baixar PNG"
+                        className="w-full text-[9.5px] font-semibold py-1 rounded bg-background text-foreground flex items-center justify-center gap-1 hover:bg-primary hover:text-primary-foreground"
+                      >
+                        <Download className="w-2.5 h-2.5" /> PNG
+                      </button>
+                      <button
                         onClick={() => removeEntry(h.id)}
                         title="Remover"
                         className="w-full text-[9.5px] font-semibold py-1 rounded bg-destructive text-destructive-foreground flex items-center justify-center gap-1"
@@ -415,15 +537,24 @@ export default function ImageStudio() {
                   </div>
                 ))}
               </div>
-              <button
-                onClick={clearHistory}
-                className="mt-2 w-full glass rounded-lg py-1.5 text-[11px] font-semibold flex items-center justify-center gap-1 hover:border-destructive/40 hover:text-destructive transition"
-              >
-                <Trash2 className="w-3 h-3" /> Limpar histórico
-              </button>
+              <div className="grid grid-cols-2 gap-1.5 mt-2">
+                <button
+                  onClick={downloadAllSession}
+                  className="glass rounded-lg py-1.5 text-[11px] font-semibold flex items-center justify-center gap-1 hover:border-primary/40 hover:text-primary transition"
+                >
+                  <FolderDown className="w-3 h-3" /> Baixar todas
+                </button>
+                <button
+                  onClick={clearHistory}
+                  className="glass rounded-lg py-1.5 text-[11px] font-semibold flex items-center justify-center gap-1 hover:border-destructive/40 hover:text-destructive transition"
+                >
+                  <Trash2 className="w-3 h-3" /> Limpar tudo
+                </button>
+              </div>
             </>
           )}
         </Card>
+
 
         <button
           onClick={() => setLivePreview(v => !v)}
@@ -472,7 +603,8 @@ export default function ImageStudio() {
             <div className="absolute bottom-4 right-4 flex gap-2 z-20">
               <button onClick={() => { setPreviewMain(imgUrl); setMode("edit"); setEditFn("retouch"); }}
                 className="w-11 h-11 rounded-xl glass-strong flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition"><Pencil className="w-5 h-5" /></button>
-              <button onClick={() => window.open(imgUrl, "_blank")}
+              <button onClick={() => downloadAsPng(imgUrl!, `${slugify(currentSession?.name || "sessao")}-${slugify(prompt || "img")}-${Date.now()}`)}
+                title="Baixar PNG"
                 className="w-11 h-11 rounded-xl glass-strong flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition"><Download className="w-5 h-5" /></button>
             </div>
           </>
