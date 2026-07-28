@@ -161,6 +161,10 @@ export default function ImageStudio() {
   const [preview1, setPreview1] = useState<string | null>(null);
   const [preview2, setPreview2] = useState<string | null>(null);
   const [styleExpanded, setStyleExpanded] = useState(false);
+  const [sessions, setSessions] = useState<Session[]>(loadSessions);
+  const [sessionId, setSessionId] = useState<string>(() => {
+    try { return localStorage.getItem(CURRENT_SESSION_KEY) || "default"; } catch { return "default"; }
+  });
   const [history, setHistory] = useState<any[]>(() => {
     try { return JSON.parse(localStorage.getItem("ai-studio:history") || "[]"); } catch { return []; }
   });
