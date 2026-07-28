@@ -363,13 +363,13 @@ export default function ImageStudio() {
       await preloadImage(url);
       setImgUrl(url);
       setHistory(prev => [
-        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, prompt: userPrompt, style, mode, createFn, model, ratio: ratio.ratio, url, ts: Date.now() },
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, prompt: userPrompt, style, mode, createFn, model, ratio: ratio.ratio, url, ts: Date.now(), session: sessionId },
         ...prev,
-      ].slice(0, 24));
+      ].slice(0, 200));
       toast.success(mode === "edit" ? "Edição concluída!" : "Imagem gerada!");
     } catch { toast.error("Erro na geração."); }
     finally { setLoading(false); }
-  }, [loading, prompt, style, mode, createFn, editFn, ratio, model, previewMain, preview1, preview2, showTwoImages]);
+  }, [loading, prompt, style, mode, createFn, editFn, ratio, model, previewMain, preview1, preview2, showTwoImages, sessionId]);
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 p-3 sm:p-5 lg:p-6 xl:p-8 min-h-screen w-full max-w-full overflow-x-hidden">
