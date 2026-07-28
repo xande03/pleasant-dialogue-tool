@@ -603,7 +603,8 @@ export default function ImageStudio() {
             <div className="absolute bottom-4 right-4 flex gap-2 z-20">
               <button onClick={() => { setPreviewMain(imgUrl); setMode("edit"); setEditFn("retouch"); }}
                 className="w-11 h-11 rounded-xl glass-strong flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition"><Pencil className="w-5 h-5" /></button>
-              <button onClick={() => window.open(imgUrl, "_blank")}
+              <button onClick={() => downloadAsPng(imgUrl!, `${slugify(currentSession?.name || "sessao")}-${slugify(prompt || "img")}-${Date.now()}`)}
+                title="Baixar PNG"
                 className="w-11 h-11 rounded-xl glass-strong flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition"><Download className="w-5 h-5" /></button>
             </div>
           </>
