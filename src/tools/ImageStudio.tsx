@@ -184,8 +184,51 @@ export default function ImageStudio() {
   useEffect(() => { try { localStorage.setItem("ai-studio:model", model); } catch {} }, [model]);
   useEffect(() => { try { localStorage.setItem("ai-studio:livePreview", livePreview ? "1" : "0"); } catch {} }, [livePreview]);
   useEffect(() => {
-    try { localStorage.setItem("ai-studio:history", JSON.stringify(history.slice(0, 24))); } catch {}
+    // Keep more history now that entries are scoped per session
+    try { localStorage.setItem("ai-studio:history", JSON.stringify(history.slice(0, 200))); } catch {}
   }, [history]);
+  useEffect(() => { try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); } catch {} }, [sessions]);
+  useEffect(() => { try { localStorage.setItem(CURRENT_SESSION_KEY, sessionId); } catch {} }, [sessionId]);
+
+  const sessionHistory = useMemo(
+    () => history.filter(h => (h.session || "default") === sessionId),
+    [history, sessionId],
+  );
+  const currentSession = sessions.find(s => s.id === sessionId) || sessions[0];
+
+  const addSession = () => {
+    const name = window.prompt("Nome da nova sessão:", `Sessão ${sessions.length + 1}`);
+    if (!name || !name.trim()) return;
+    const s: Session = { id: `s-${Date.now().toString(36)}`, name: name.trim(), createdAt: Date.now() };
+    setSessions(prev => [...prev, s]);
+    setSessionId(s.id);
+    toast.success(`Sessão "${s.name}" criada`);
+  };
+  const renameSession = () => {
+    if (!currentSession) return;
+    const name = window.prompt("Renomear sessão:", currentSession.name);
+    if (!name || !name.trim()) return;
+    setSessions(prev => prev.map(s => s.id === currentSession.id ? { ...s, name: name.trim() } : s));
+  };
+  const deleteSession = () => {
+    if (!currentSession || sessions.length <= 1) { toast.error("Mantenha ao menos uma sessão."); return; }
+    if (!window.confirm(`Excluir a sessão "${currentSession.name}" e todo o seu histórico?`)) return;
+    setHistory(prev => prev.filter(h => (h.session || "default") !== currentSession.id));
+    const remaining = sessions.filter(s => s.id !== currentSession.id);
+    setSessions(remaining);
+    setSessionId(remaining[0].id);
+  };
+  const downloadAllSession = async () => {
+    if (!sessionHistory.length) { toast.error("Sem imagens nesta sessão."); return; }
+    toast.message(`Baixando ${sessionHistory.length} imagens…`);
+    for (let i = 0; i < sessionHistory.length; i++) {
+      const h = sessionHistory[i];
+      await downloadAsPng(h.url, `${slugify(currentSession?.name || "sessao")}-${i + 1}-${slugify(h.prompt || "img")}`);
+      await new Promise(r => setTimeout(r, 350));
+    }
+    toast.success("Download concluído");
+  };
+
 
   // Live preview — debounced low-res render as user types
   useEffect(() => {
