@@ -1,7 +1,7 @@
 {
-  "name": "AI Image Studio",
-  "short_name": "AI Studio",
-  "description": "Gerador profissional de imagens com IA",
+  "name": "flowcheats",
+  "short_name": "flowcheats",
+  "description": "Suite criativa com IA: imagens, chat, QR e PDF",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
