@@ -75,7 +75,7 @@ const Index = () => {
             <Sparkles className="w-4 h-4 text-primary-foreground" strokeWidth={2.4} />
           </div>
           <div className="min-w-0">
-            <div className="font-display text-[15px] leading-tight tracking-tight">Creator Suite</div>
+            <div className="font-display text-[15px] leading-tight tracking-tight">flowcheats</div>
             <div className="text-[10.5px] text-muted-foreground font-medium">Premium tools</div>
           </div>
         </div>
@@ -134,7 +134,7 @@ const Index = () => {
                 <div className="w-9 h-9 rounded-xl gradient-aurora flex items-center justify-center">
                   <Sparkles className="w-4 h-4 text-primary-foreground" strokeWidth={2.4} />
                 </div>
-                <span className="font-display text-[15px]">Creator Suite</span>
+                <span className="font-display text-[15px]">flowcheats</span>
               </div>
               <button
                 onClick={() => setMobileNav(false)}
