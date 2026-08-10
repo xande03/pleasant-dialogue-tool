@@ -4,6 +4,7 @@ import ImageStudio from "@/tools/ImageStudio";
 import QrTool from "@/tools/QrTool";
 import PdfTool from "@/tools/PdfTool";
 import ChatTool from "@/tools/ChatTool";
+import backgroundAsset from "@/assets/background-dance.png.asset.json";
 
 type ToolKey = "image" | "qr" | "pdf" | "chat";
 type Theme = "light" | "dark";
@@ -67,9 +68,12 @@ const Index = () => {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-background text-foreground overflow-hidden">
+    <div 
+      className="flex min-h-screen w-full bg-background text-foreground overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
+      style={{ backgroundImage: `url(${backgroundAsset.url})` }}
+    >
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-[248px] xl:w-[272px] z-30 border-r border-border flex-col bg-background/80 backdrop-blur-sm">
+      <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-[248px] xl:w-[272px] z-30 border-r border-border flex-col bg-background/60 backdrop-blur-md">
         <div className="px-5 pt-6 pb-5 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl gradient-aurora flex items-center justify-center shadow-brutal-sm">
             <Sparkles className="w-4 h-4 text-primary-foreground" strokeWidth={2.4} />
@@ -155,7 +159,7 @@ const Index = () => {
       {/* Main content */}
       <main className="flex-1 md:ml-[248px] xl:ml-[272px] pt-14 md:pt-0 min-h-screen w-full max-w-full min-w-0 overflow-x-hidden flex flex-col">
         {/* Desktop tool header */}
-        <div className="hidden md:flex h-[72px] border-b border-border bg-background/70 backdrop-blur-sm items-center justify-between px-8 shrink-0">
+        <div className="hidden md:flex h-[72px] border-b border-border bg-background/40 backdrop-blur-md items-center justify-between px-8 shrink-0">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-secondary ink-border flex items-center justify-center shrink-0">
               <currentTool.Icon className="w-4.5 h-4.5" strokeWidth={2.2} />
@@ -180,7 +184,7 @@ const Index = () => {
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 w-full bg-canvas">
+        <div className="flex-1 min-h-0 w-full bg-transparent">
           <Tool />
         </div>
       </main>
