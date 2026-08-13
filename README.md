@@ -1,6 +1,6 @@
-# Merge Cheats
+# FiermPhoto
 
-Merge Cheats é uma ferramenta de diálogo desenvolvida com Vite, TypeScript e Tailwind CSS.
+FiermPhoto é uma ferramenta de diálogo desenvolvida com Vite, TypeScript e Tailwind CSS.
 
 ## Tecnologias Utilizadas
 
@@ -39,6 +39,6 @@ bun run build
 Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
 
 ```env
-VITE_APP_TITLE="Merge Cheats"
+VITE_APP_TITLE="FiermPhoto"
 VITE_APP_VERSION="1.0.0"
 ```
