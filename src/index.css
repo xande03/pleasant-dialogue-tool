@@ -118,9 +118,9 @@
 
   /* Soft elevation (legacy brutal-shadow names → subtle) */
   .shadow-brutal    { box-shadow: var(--shadow-soft); }
-  .shadow-brutal-sm { box-shadow: 0 1px 2px hsl(222 30% 12% / 0.05); }
+  .shadow-brutal-sm { box-shadow: 0 1px 2px hsl(0 0% 0% / 0.08); }
   .shadow-brutal-lg { box-shadow: var(--shadow-lift); }
-  .shadow-brutal-xl { box-shadow: 0 4px 8px hsl(222 30% 12% / 0.05), 0 32px 64px -24px hsl(222 30% 12% / 0.18); }
+  .shadow-brutal-xl { box-shadow: 0 4px 10px hsl(0 0% 0% / 0.10), 0 36px 72px -28px hsl(0 0% 0% / 0.35); }
 
   /* Interactive lift */
   .brutal-hover {
