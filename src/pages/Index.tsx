@@ -70,8 +70,9 @@ const Index = () => {
   return (
     <div 
       className="flex min-h-screen w-full bg-background text-foreground overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
-      style={{ backgroundImage: `url(${backgroundAsset.url})` }}
+      style={{ backgroundImage: `linear-gradient(hsl(var(--background) / 0.86), hsl(var(--background) / 0.94)), url(${backgroundAsset.url})` }}
     >
+
       {/* Desktop sidebar */}
       <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-[248px] xl:w-[272px] z-30 border-r border-border flex-col bg-background/60 backdrop-blur-md">
         <div className="px-5 pt-6 pb-5 flex items-center gap-3">
