@@ -1,24 +1,44 @@
-# Happy Little Project
+# Merge Cheats
 
-oi
+Merge Cheats é uma ferramenta de diálogo desenvolvida com Vite, TypeScript e Tailwind CSS.
 
-This project was built with [Lovable](https://lovable.dev).
+## Tecnologias Utilizadas
 
-## Build with Lovable
+- [Vite](https://vitejs.dev/) - Ferramenta de build e desenvolvimento rápida
+- [TypeScript](https://www.typescriptlang.org/) - Superset tipado do JavaScript
+- [Tailwind CSS](https://tailwindcss.com/) - Framework de CSS utilitário
+- [Playwright](https://playwright.dev/) - Framework de testes E2E
+- [Bun](https://bun.sh/) - Runtime e gerenciador de pacotes rápido
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/b7fdf134-00b1-4060-964b-ca088ca33c54).
+## Estrutura do Projeto
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+- `src/` - Código fonte da aplicação
+- `public/` - Arquivos estáticos públicos
+- `tests/` - Testes com Playwright
 
-## Development
+## Desenvolvimento
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Para começar a desenvolver:
 
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+```bash
+# Instalar dependências
+bun install
+
+# Iniciar servidor de desenvolvimento
+bun run dev
+
+# Rodar testes
+bun run test
+
+# Construir para produção
+bun run build
+```
+
+## Variáveis de Ambiente
+
+Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
+
+```env
+VITE_APP_TITLE="Merge Cheats"
+VITE_APP_VERSION="1.0.0"
 ```
