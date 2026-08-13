@@ -170,14 +170,14 @@
 
   .bg-canvas {
     background:
-      radial-gradient(1200px 600px at 20% 0%, hsl(var(--primary) / 0.06), transparent 60%),
-      radial-gradient(900px 500px at 100% 100%, hsl(199 89% 55% / 0.05), transparent 60%),
+      radial-gradient(1200px 600px at 20% 0%, hsl(var(--primary) / 0.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 100%, hsl(var(--primary-glow) / 0.07), transparent 60%),
       hsl(var(--paper-2));
   }
 
   .scrollbar-thin::-webkit-scrollbar { width: 10px; height: 10px; }
   .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--hairline)); border-radius: 999px; border: 2px solid hsl(var(--paper-2)); }
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(215 16% 70%); }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.6); }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
 
   @keyframes brutal-pulse {
