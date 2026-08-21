@@ -119,6 +119,12 @@ const slugify = (s: string) =>
 type Session = { id: string; name: string; createdAt: number };
 const SESSIONS_KEY = "ai-studio:sessions";
 const CURRENT_SESSION_KEY = "ai-studio:currentSession";
+const SESSION_BACKGROUND = "/Adicione_uma_capivaa_ao_lado_deste_cachorro_2k_delpmaspu.png";
+const SESSION_CARD_STYLE = {
+  backgroundImage: `linear-gradient(hsl(var(--paper) / 0.82), hsl(var(--paper) / 0.94)), url(${SESSION_BACKGROUND})`,
+  backgroundPosition: "center",
+  backgroundSize: "cover",
+};
 
 function loadSessions(): Session[] {
   try {
@@ -130,8 +136,8 @@ function loadSessions(): Session[] {
 }
 
 
-const Card = ({ icon: Icon, title, subtitle, children }: any) => (
-  <section className="glass rounded-2xl p-4 border border-border/40">
+const Card = ({ icon: Icon, title, subtitle, children, className = "", style }: any) => (
+  <section className={`glass rounded-2xl p-4 border border-border/40 ${className}`} style={style}>
     <div className="flex items-center gap-2.5 mb-3">
       <div className="w-8 h-8 rounded-lg gradient-aurora flex items-center justify-center glow-primary shrink-0">
         <Icon className="w-4 h-4 text-primary-foreground" />
@@ -467,7 +473,13 @@ export default function ImageStudio() {
           </button>
         </Card>
 
-        <Card icon={UserIcon} title="Sessão" subtitle={currentSession?.name || "—"}>
+        <Card
+          icon={UserIcon}
+          title="Sessão"
+          subtitle={currentSession?.name || "—"}
+          className="overflow-hidden"
+          style={SESSION_CARD_STYLE}
+        >
           <select
             value={sessionId}
             onChange={e => setSessionId(e.target.value)}
