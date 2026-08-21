@@ -187,7 +187,7 @@ const Index = () => {
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 w-full bg-transparent">
+        <div className="flex-1 min-h-0 w-full bg-tool-panel">
           <Tool />
         </div>
       </main>
