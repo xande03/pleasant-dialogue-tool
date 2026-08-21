@@ -4,7 +4,10 @@ import ImageStudio from "@/tools/ImageStudio";
 import QrTool from "@/tools/QrTool";
 import PdfTool from "@/tools/PdfTool";
 import ChatTool from "@/tools/ChatTool";
-import backgroundAsset from "@/assets/background-dance.png.asset.json";
+import backgroundAsset from "@/assets/background-dance.png.asset.";
+
+// Import the same image used in splash screen
+import puppyImage from "../public/Adicione_uma_capivaa_ao_lado_deste_cachorro_2k_delpmaspu.png";
 
 type ToolKey = "image" | "qr" | "pdf" | "chat";
 type Theme = "light" | "dark";
@@ -70,7 +73,7 @@ const Index = () => {
   return (
     <div 
       className="flex min-h-screen w-full bg-background text-foreground overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
-      style={{ backgroundImage: `linear-gradient(hsl(var(--background) / 0.86), hsl(var(--background) / 0.94)), url(${backgroundAsset.url})` }}
+      style={{ backgroundImage: `linear-gradient(hsl(var(--background) / 0.86), hsl(var(--background) / 0.94)), url(${puppyImage})` }}
     >
 
       {/* Desktop sidebar */}
