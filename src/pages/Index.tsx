@@ -4,7 +4,7 @@ import ImageStudio from "@/tools/ImageStudio";
 import QrTool from "@/tools/QrTool";
 import PdfTool from "@/tools/PdfTool";
 import ChatTool from "@/tools/ChatTool";
-import backgroundAsset from "@/assets/background-dance.png.asset.";
+import backgroundAsset from "@/assets/background-dance.png.asset.json";
 
 type ToolKey = "image" | "qr" | "pdf" | "chat";
 type Theme = "light" | "dark";
