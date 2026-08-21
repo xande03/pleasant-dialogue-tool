@@ -4,10 +4,9 @@ import ImageStudio from "@/tools/ImageStudio";
 import QrTool from "@/tools/QrTool";
 import PdfTool from "@/tools/PdfTool";
 import ChatTool from "@/tools/ChatTool";
-import backgroundAsset from "@/assets/background-dance.png.asset.";
 
 // Import the same image used in splash screen
-import puppyImage from "../public/Adicione_uma_capivaa_ao_lado_deste_cachorro_2k_delpmaspu.png";
+import puppyImage from "/Adicione_uma_capivaa_ao_lado_deste_cachorro_2k_delpmaspu.png";
 
 type ToolKey = "image" | "qr" | "pdf" | "chat";
 type Theme = "light" | "dark";
@@ -16,7 +15,7 @@ const TOOLS: { key: ToolKey; Icon: typeof Sparkles; label: string; subtitle: str
   { key: "image", Icon: Sparkles,      label: "Image Studio", subtitle: "AI generation" },
   { key: "chat",  Icon: MessageCircle, label: "Chat IA",      subtitle: "Conversa livre" },
   { key: "qr",    Icon: QrCode,        label: "QR Tool",      subtitle: "Codes & uploads" },
-  { key: "pdf",   Icon: FileText,      label: "PDF Tool",     subtitle: "PDF ↔ DOCX" },
+  { key: "pdf",   Icon: FileText,        label: "PDF Tool",     subtitle: "PDF ↔ DOCX" },
 ];
 
 const Index = () => {
