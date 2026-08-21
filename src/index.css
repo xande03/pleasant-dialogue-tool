@@ -187,4 +187,15 @@
   .animate-brutal-pulse { animation: brutal-pulse 1600ms ease-in-out infinite; }
 
   .divider-hairline { height: 1px; background: hsl(var(--hairline)); }
+
+  /* Hide Lovable badge globally */
+  #lovable-badge,
+  #lovable-badge * {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    z-index: -9999 !important;
+  }
 }
