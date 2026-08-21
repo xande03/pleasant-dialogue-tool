@@ -34,6 +34,26 @@ bun run test
 bun run build
 ```
 
+## Publicação automática na main
+
+Toda alteração é commitada e enviada automaticamente para a `main` do repositório
+principal (`xande03/pleasant-dialogue-tool`) através do script de auto-push:
+
+```bash
+# commita tudo, envia para a branch de trabalho e mescla na main
+bun run push "mensagem do commit"
+
+# ou, sem mensagem (usa data/hora automática)
+bun run push
+```
+
+O script `scripts/auto-push.sh` executa, em sequência:
+
+1. `git add -A` + `git commit` (se houver mudanças pendentes)
+2. `git push` para a branch de trabalho
+3. abre o Pull Request para a `main` (ou reaproveita um já aberto)
+4. faz o merge do PR na `main` e atualiza a referência local
+
 ## Variáveis de Ambiente
 
 Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
