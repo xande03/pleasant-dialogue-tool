@@ -50,6 +50,10 @@
     --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.05), 0 8px 24px -14px hsl(0 0% 0% / 0.16);
     --shadow-lift: 0 2px 6px hsl(0 0% 0% / 0.07), 0 20px 44px -20px hsl(0 0% 0% / 0.28);
     --shadow-ring: 0 0 0 1px hsl(var(--hairline));
+
+    /* Tool panel background (robot hand) overlay strength */
+    --tool-bg-top: 0.80;
+    --tool-bg-bottom: 0.90;
   }
 
   .dark {
@@ -83,6 +87,9 @@
     --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.6), 0 8px 24px -12px hsl(0 0% 0% / 0.8);
     --shadow-lift: 0 2px 6px hsl(0 0% 0% / 0.6), 0 20px 48px -20px hsl(0 0% 0% / 0.9);
     --shadow-ring: 0 0 0 1px hsl(var(--hairline));
+
+    --tool-bg-top: 0.78;
+    --tool-bg-bottom: 0.88;
   }
 }
 
@@ -166,6 +173,35 @@
     background-color: hsl(var(--paper-2));
     background-image: radial-gradient(hsl(var(--ink) / 0.07) 1px, transparent 1px);
     background-size: 24px 24px;
+  }
+
+  /* Plano de fundo das seções/painéis das ferramentas */
+  .bg-tool-panel {
+    position: relative;
+    isolation: isolate;
+    background-color: hsl(var(--paper-2));
+  }
+  .bg-tool-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(
+        180deg,
+        hsl(var(--background) / var(--tool-bg-top)),
+        hsl(var(--background) / var(--tool-bg-bottom))
+      ),
+      url('/robot-hand-bg.jpg');
+    background-size: cover, cover;
+    background-position: center, center;
+    background-repeat: no-repeat, no-repeat;
+    background-attachment: scroll, fixed;
+  }
+  /* iOS/Safari não lida bem com background-attachment: fixed */
+  @supports (-webkit-touch-callout: none) {
+    .bg-tool-panel::before { background-attachment: scroll, scroll; }
   }
 
   .bg-canvas {
