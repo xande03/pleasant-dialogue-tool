@@ -14,11 +14,20 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
   }, [onComplete]);
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-      <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/gaivota.webp')" }}>
-        <div className="absolute inset-0 bg-black/30" />
-      </div>
-      <div className="text-center max-w-md mx-auto relative z-10">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background" style={{
+      backgroundImage: "url('/gaivota.webp')",
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat"
+    }}>
+      <div className="text-center max-w-md mx-auto bg-black/30 backdrop-blur-sm p-8 rounded-lg border border-white/10">
+        <div className="mb-6">
+          <img 
+            src="/Adicione_uma_capivaa_ao_lado_deste_cachorro_2k_delpmaspu.png" 
+            alt="Beagle puppy walking on grass"
+            className="w-full h-auto max-h-64 object-cover rounded-lg shadow-lg mx-auto"
+          />
+        </div>
         <h1 className="font-display text-[48px] font-bold tracking-tight text-foreground">
           guerreiros, membros
         </h1>
