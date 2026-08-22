@@ -50,12 +50,12 @@ const Index = () => {
         onClick={() => { setActive(t.key); onClick?.(); }}
         className={`group w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
           on
-            ? "bg-foreground text-background shadow-brutal"
+            ? "bg-primary text-primary-foreground shadow-brutal-sm"
             : "text-foreground/80 hover:bg-secondary/70"
         }`}
       >
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-          on ? "bg-background/10 text-background" : "bg-secondary text-foreground/70 group-hover:bg-background"
+          on ? "bg-primary-foreground/10 text-primary-foreground" : "bg-secondary text-foreground/70 group-hover:bg-background"
         }`}>
           <t.Icon className="w-4 h-4" strokeWidth={2} />
         </div>
