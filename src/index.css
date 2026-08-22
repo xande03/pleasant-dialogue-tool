@@ -16,9 +16,9 @@
     --popover: 120 25% 99%;
     --popover-foreground: 120 20% 5%;
 
-    --primary: 152 52% 25%;                 /* deep forest green */
+    --primary: 120 32% 15%;                 /* dark forest green */
     --primary-foreground: 0 0% 99%;
-    --primary-glow: 152 62% 39%;
+    --primary-glow: 120 42% 29%;
 
     --secondary: 120 14% 92%;
     --secondary-foreground: 120 20% 8%;
@@ -26,13 +26,13 @@
     --muted: 120 14% 94%;
     --muted-foreground: 120 6% 38%;
 
-    --accent: 152 52% 25%;
+    --accent: 120 32% 15%;
     --accent-foreground: 0 0% 99%;
 
     --destructive: 0 65% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 45% 34%;
+    --success: 120 40% 24%;
 
     --border: 120 12% 86%;
     --input: 120 12% 84%;
@@ -45,7 +45,7 @@
     --paper-2: 120 18% 95%;
     --hairline: 120 12% 86%;
 
-    --gradient-aurora: linear-gradient(135deg, hsl(152 52% 25%), hsl(152 70% 39%));
+    --gradient-aurora: linear-gradient(135deg, hsl(120 32% 15%), hsl(120 42% 29%));
     --gradient-surface: linear-gradient(180deg, hsl(var(--paper)) 0%, hsl(var(--paper-2)) 100%);
     --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.05), 0 8px 24px -14px hsl(0 0% 0% / 0.16);
     --shadow-lift: 0 2px 6px hsl(0 0% 0% / 0.07), 0 20px 44px -20px hsl(0 0% 0% / 0.28);
@@ -64,18 +64,18 @@
     --card-foreground: 120 30% 94%;
     --popover: 120 20% 8%;
     --popover-foreground: 120 30% 94%;
-    --primary: 152 52% 35%;                 /* deep forest green */
+    --primary: 120 32% 15%;                 /* dark forest green */
     --primary-foreground: 0 0% 5%;
-    --primary-glow: 152 72% 54%;            /* lighter forest green */
+    --primary-glow: 120 42% 29%;
     --secondary: 120 20% 12%;
     --secondary-foreground: 120 25% 92%;
     --muted: 120 20% 11%;
     --muted-foreground: 120 10% 66%;
-    --accent: 152 52% 35%;
+    --accent: 120 32% 15%;
     --accent-foreground: 0 0% 5%;
     --destructive: 0 70% 52%;
     --destructive-foreground: 0 0% 100%;
-    --success: 152 50% 48%;
+    --success: 120 40% 24%;
     --border: 120 12% 18%;
     --input: 120 12% 20%;
     --ring: 152 52% 35%;
@@ -83,7 +83,7 @@
     --paper: 120 20% 8%;
     --paper-2: 120 20% 5%;
     --hairline: 120 12% 18%;
-    --gradient-aurora: linear-gradient(135deg, hsl(152 52% 35%), hsl(152 72% 54%));
+    --gradient-aurora: linear-gradient(135deg, hsl(120 32% 15%), hsl(120 42% 29%));
     --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.6), 0 8px 24px -12px hsl(0 0% 0% / 0.8);
     --shadow-lift: 0 2px 6px hsl(0 0% 0% / 0.6), 0 20px 48px -20px hsl(0 0% 0% / 0.9);
     --shadow-ring: 0 0 0 1px hsl(var(--hairline));
