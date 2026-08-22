@@ -13,6 +13,12 @@
     "test:watch": "vitest",
     "push": "bash scripts/auto-push.sh"
   },
+  "description": "Ferramenta de diálogo agradável com QR code, geração de imagens e chat de IA.",
+  "keywords": ["qr-code", "chat-ia", "image-studio", "pdf-tool"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xande03/pleasant-dialogue-tool"
+  },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",
