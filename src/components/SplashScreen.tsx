@@ -24,7 +24,7 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
           />
         </div>
         <h1 className="font-display text-[48px] font-bold tracking-tight text-foreground">
-          olá, amigos
+          guerreiros, membros
         </h1>
         <div className="mt-4 text-[16px] text-muted-foreground">
           Carregando ferramentas premium...
