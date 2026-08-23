@@ -14,13 +14,8 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
   }, [onComplete]);
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background" style={{
-      backgroundImage: "url('/gaivota.webp')",
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat"
-    }}>
-      <div className="text-center max-w-md mx-auto bg-black/30 backdrop-blur-sm p-8 rounded-lg border border-white/10">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+      <div className="text-center max-w-md mx-auto">
         <div className="mb-6">
           <img 
             src="/Adicione_uma_capivaa_ao_lado_deste_cachorro_2k_delpmaspu.png" 
@@ -28,15 +23,8 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
             className="w-full h-auto max-h-64 object-cover rounded-lg shadow-lg mx-auto"
           />
         </div>
-        <div className="mb-6">
-          <img 
-            src="/robot.png" 
-            alt="Futuristic robotic hand"
-            className="w-full h-auto max-h-64 object-cover rounded-lg shadow-lg mx-auto"
-          />
-        </div>
         <h1 className="font-display text-[48px] font-bold tracking-tight text-foreground">
-          guerreiros, membros
+          vem musicas
         </h1>
         <div className="mt-4 text-[16px] text-muted-foreground">
           Carregando ferramentas premium...
