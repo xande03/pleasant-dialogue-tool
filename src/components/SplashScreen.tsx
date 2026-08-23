@@ -28,6 +28,13 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
             className="w-full h-auto max-h-64 object-cover rounded-lg shadow-lg mx-auto"
           />
         </div>
+        <div className="mb-6">
+          <img 
+            src="/robot.png" 
+            alt="Futuristic robotic hand"
+            className="w-full h-auto max-h-64 object-cover rounded-lg shadow-lg mx-auto"
+          />
+        </div>
         <h1 className="font-display text-[48px] font-bold tracking-tight text-foreground">
           guerreiros, membros
         </h1>
