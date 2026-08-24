@@ -1,56 +1,52 @@
-import { motion } from 'motion';
+import { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
+import { useMobile } from '@/hooks/use-mobile';
 
 export function SplashScreen() {
+  const [isVisible, setIsVisible] = useState(true);
+  const isMobile = useMobile();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!isVisible) return null;
+
   return (
     <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background"
       initial={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background"
+      animate={{ opacity: 0 }}
+      transition={{ duration: 0.5, delay: 2.5 }}
     >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="flex flex-col items-center justify-center gap-6 text-center"
-      >
+      <div className="flex flex-col items-center justify-center space-y-4">
         <motion.div
-          initial={{ y: -20 }}
-          animate={{ y: 0 }}
-          transition={{ delay: 0.2 }}
+          className="relative"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
         >
-          <div className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-primary-foreground">
-            <motion.div
-              animate={{ rotate: [0, 360] }}
-              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="lucide lucide-loader-2"
-              >
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              </svg>
-            </motion.div>
-            <span className="font-medium">Vamos la, amigos</span>
+          <div className="w-24 h-24 rounded-full bg-gradient-aurora p-1">
+            <div className="w-full h-full rounded-full bg-background flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-aurora flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-background" />
+              </div>
+            </div>
           </div>
         </motion.div>
-        
         <motion.div
-          initial={{ y: 20 }}
-          animate={{ y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="text-sm text-muted-foreground"
+          className="text-center"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.5 }}
         >
-          Carregando sua experiência...
+          <h1 className="text-2xl font-bold text-foreground">Pleasant Dialogue Tool</h1>
+          <p className="text-muted-foreground mt-2">Nova mensagem adicionada no splashscreen</p>
         </motion.div>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }
